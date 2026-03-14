@@ -113,11 +113,17 @@
 
   lint
   {:doc  "Lint all source files with clj-kondo"
-   :task (let [kondo (or (some #(when (.exists (clojure.java.io/file %))
-                                  %)
-                                ["clj-kondo" ".clj-kondo-bin/clj-kondo"])
-                         (do (println "clj-kondo not found. Run: bb lint:install")
-                             (System/exit 1)))]
+   :requires ([babashka.fs :as fs])
+   :task (let [kondo (cond
+                       (fs/exists? ".clj-kondo-bin/clj-kondo")
+                       ".clj-kondo-bin/clj-kondo"
+
+                       (fs/which "clj-kondo")
+                       "clj-kondo"
+
+                       :else
+                       (do (println "clj-kondo not found. Run: bb lint:install")
+                           (System/exit 1)))]
            (shell kondo
                   "--lint"
                   "modules/core/src"
