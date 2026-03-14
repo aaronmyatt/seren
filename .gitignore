@@ -22,6 +22,7 @@ target/
 # Clojure tooling
 .lsp/
 .clj-kondo/
+.clj-kondo-bin/
 
 # Claude Code local settings
 .claude/settings.local.json
@@ -44,6 +45,9 @@ public/js/
 
 # PocketBase (binary + data)
 .pocketbase/
+
+# Seren content data (local file-based store)
+.seren-data/
 
 # Test output
 /tmp/

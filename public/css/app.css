@@ -1,65 +1,181 @@
-/* Application layout styles.
+/* Seren — application layout styles.
  * Uses Open Props custom properties for all spacing and sizing.
  * See: https://open-props.style/#sizes
  */
+
+/* --- Global layout --- */
 
 body {
   max-inline-size: var(--size-content-3);
   margin-inline: auto;
   padding: var(--size-3);
+  padding-block-end: calc(var(--size-10) + env(safe-area-inset-bottom, 0px));
 }
 
-/* Login page */
-.page-login {
-  display: grid;
-  place-items: center;
-  min-block-size: 80vh;
-}
-
-.login-card {
-  max-inline-size: var(--size-content-2);
-  inline-size: 100%;
-  padding: var(--size-7);
-}
-
-.login-card h1 {
-  font-size: var(--font-size-4);
+header {
   margin-block-end: var(--size-5);
 }
 
-.login-card sl-input {
-  margin-block-end: var(--size-3);
+header h1 {
+  font-size: var(--font-size-5);
+  margin-block-end: var(--size-1);
+  color: var(--violet-9);
 }
 
-.form-actions {
-  margin-block-start: var(--size-3);
+header p {
+  color: var(--gray-6);
+  font-size: var(--font-size-1);
 }
 
-.form-actions sl-button {
+/* --- Bottom navigation --- */
+
+.bottom-nav {
+  position: fixed;
+  inset-inline: 0;
+  inset-block-end: 0;
+  display: flex;
+  justify-content: center;
+  gap: var(--size-1);
+  padding: var(--size-3);
+  padding-block-end: calc(var(--size-3) + env(safe-area-inset-bottom, 0px));
+  background: var(--surface-1);
+  border-block-start: var(--border-size-1) solid var(--gray-3);
+  z-index: 10;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--size-2) var(--size-5);
+  border-radius: var(--radius-2);
+  text-decoration: none;
+  font-weight: var(--font-weight-5);
+  font-size: var(--font-size-1);
+  color: var(--gray-6);
+  transition: all 0.15s ease;
+}
+
+.nav-item:hover {
+  color: var(--violet-7);
+  background: var(--violet-1);
+}
+
+.nav-item.active {
+  color: var(--violet-9);
+  background: var(--violet-2);
+}
+
+/* --- Library page --- */
+
+.page-library .ingest-form {
+  margin-block-end: var(--size-6);
+}
+
+.page-library .ingest-form sl-card {
   inline-size: 100%;
 }
 
-.error-message {
-  color: var(--red-6);
-  margin-block-start: var(--size-2);
+.page-library .ingest-form sl-textarea,
+.page-library .ingest-form sl-input {
+  margin-block-end: var(--size-3);
+}
+
+.page-library .form-actions {
+  margin-block-start: var(--size-3);
+}
+
+.page-library .form-actions sl-button {
+  inline-size: 100%;
+}
+
+.page-library .content-feed h2 {
+  font-size: var(--font-size-3);
+  margin-block-end: var(--size-3);
+}
+
+/* Content cards */
+.content-feed sl-card {
+  inline-size: 100%;
+  margin-block-end: var(--size-3);
+}
+
+.content-card h3 {
+  font-size: var(--font-size-2);
+  margin-block-end: var(--size-1);
+}
+
+.content-summary {
+  color: var(--gray-7);
   font-size: var(--font-size-0);
+  margin-block-end: var(--size-2);
+  /* Clamp to 2 lines */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
-/* Dashboard page */
-.page-dashboard header {
+.content-meta {
   display: flex;
+  flex-wrap: wrap;
+  gap: var(--size-1);
   align-items: center;
-  justify-content: space-between;
+}
+
+.content-meta sl-badge {
+  font-size: var(--font-size-00);
+}
+
+.content-date {
+  margin-inline-start: auto;
+  font-size: var(--font-size-00);
+  color: var(--gray-5);
+}
+
+.empty-state,
+.error-state {
+  text-align: center;
+  padding: var(--size-7);
+  color: var(--gray-5);
+  font-size: var(--font-size-1);
+}
+
+.error-state {
+  color: var(--red-6);
+}
+
+/* --- Dashboard page --- */
+
+.page-dashboard .dashboard-content {
+  display: grid;
+  gap: var(--size-4);
+}
+
+.page-dashboard sl-card {
+  inline-size: 100%;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
   gap: var(--size-3);
-  padding-block-end: var(--size-4);
-  border-block-end: var(--border-size-1) solid var(--gray-3);
-  margin-block-end: var(--size-4);
+  text-align: center;
 }
 
-.page-dashboard .user-info {
-  font-weight: var(--font-weight-5);
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--size-1);
 }
 
-.dashboard-content {
-  padding-block-start: var(--size-3);
+.stat-value {
+  font-size: var(--font-size-5);
+  font-weight: var(--font-weight-7);
+  color: var(--violet-9);
+}
+
+.stat-label {
+  font-size: var(--font-size-00);
+  color: var(--gray-6);
 }

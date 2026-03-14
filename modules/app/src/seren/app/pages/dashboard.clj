@@ -1,9 +1,8 @@
 (ns seren.app.pages.dashboard
-  "Dashboard page — the landing page for Seren.
-   Shows upcoming reviews, recent content, and score history.
+  "Dashboard page — upcoming reviews, score history, content stats.
 
-   This is the starting point for the PWA. Further pages (library,
-   review session) will be added in later phases.
+   For Phase 1 this is a simple overview showing total content count
+   and a link to the library. Phase 2 will add upcoming review cards.
 
    See: https://shoelace.style/components/card"
   (:require [seren.app.pages.layout :as layout]
@@ -13,18 +12,30 @@
   "Ring handler for GET /dashboard. Renders the Seren dashboard."
   [_request]
   (-> (layout/page
-        {:title "Seren — Learning Agent"
+        {:title "Dashboard — Seren"
+         :nav :dashboard
          :modules [:shared :dashboard]
          :body
          [:main.page-dashboard
+
           [:header
-           [:h1 "Seren"]
-           [:p "Your learning companion"]]
+           [:h1 "Dashboard"]
+           [:p "Your learning overview"]]
 
           [:section.dashboard-content
            [:sl-card
-            [:p "No content ingested yet."]
-            [:p "Paste a URL or some text to get started."]]]]})
+            [:div {:data-island "stats"}
+             [:p "Loading stats..."]]]
+
+           [:sl-card
+            [:h3 "Ready to learn?"]
+            [:p "Add content to your library, then review it with voice-driven free recall."]
+            [:sl-button {:href "/library" :variant "primary"} "Go to Library"]]]
+
+          ;; --- Navigation ---
+          [:nav.bottom-nav
+           [:a.nav-item {:href "/library"} "Library"]
+           [:a.nav-item.active {:href "/dashboard"} "Dashboard"]]]})
       (response/response)
       (response/content-type "text/html")))
 

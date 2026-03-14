@@ -1,27 +1,91 @@
 (ns seren.app.server
   "Ring HTTP server with Reitit routing.
-   Serves Hiccup-rendered HTML pages and static assets from public/.
+   Serves Hiccup-rendered HTML pages, an EDN API, and static assets.
+
+   Routes:
+     GET  /              → redirect to /library
+     GET  /library       → content library (ingest + browse)
+     GET  /dashboard     → dashboard (upcoming reviews, scores)
+     POST /api/ingest    → ingest content (EDN body)
+     GET  /api/content   → list all content (EDN response)
 
    Start in REPL:  (seren.app.server/start! {:port 3000})
    Stop:           (seren.app.server/stop!)
 
    See: https://github.com/metosin/reitit#ring-router
-   See: https://github.com/ring-clojure/ring/wiki/Static-Resources"
+   See: https://github.com/ring-clojure/ring/wiki"
   (:require [reitit.ring :as reitit-ring]
             [ring.adapter.jetty :as jetty]
             [ring.middleware.file :refer [wrap-file]]
             [ring.middleware.content-type :refer [wrap-content-type]]
             [ring.middleware.not-modified :refer [wrap-not-modified]]
             [ring.util.response :as response]
+            [clojure.edn :as edn]
+            [seren.app.main :as app]
+            [seren.app.pages.library :as library-page]
             [seren.app.pages.dashboard :as dashboard-page]))
+
+;; --- App state ---
+;; The store directory is configurable; defaults to .seren-data/ in the project root.
+
+(def ^:private default-store-dir ".seren-data/content")
+
+(defn- app-config []
+  {:store-dir default-store-dir})
+
+;; --- EDN API helpers ---
+;; The API speaks EDN — natural for ClojureScript frontends.
+;; A JSON layer can be added later for non-CLJS clients.
+
+(defn- read-edn-body
+  "Reads the request body as EDN. Returns nil on parse failure.
+   See: https://clojure.org/reference/reader#_edn"
+  [request]
+  (try
+    (when-let [body (:body request)]
+      (let [s (slurp body)]
+        (when-not (empty? s)
+          (edn/read-string s))))
+    (catch Exception _ nil)))
+
+(defn- edn-response
+  "Creates a Ring response with EDN content type."
+  [status body]
+  (-> (response/response (pr-str body))
+      (response/status status)
+      (response/content-type "application/edn")))
+
+;; --- API handlers ---
+
+(defn- ingest-handler
+  "POST /api/ingest — ingests content from EDN body.
+   Expects: {:text \"...\" :title \"...\" :url \"...\"}
+   Returns: {:success true :content {...}} or {:success false :reason \"...\"}"
+  [request]
+  (if-let [body (read-edn-body request)]
+    (let [result (app/ingest-content!
+                   (merge (app-config) body))]
+      (if (:success result)
+        (edn-response 201 result)
+        (edn-response 400 result)))
+    (edn-response 400 {:success false :reason "Could not parse request body as EDN"})))
+
+(defn- list-content-handler
+  "GET /api/content — returns all ingested content as EDN."
+  [_request]
+  (let [contents (app/list-all-content (app-config))]
+    (edn-response 200 {:content contents})))
 
 ;; --- Routes ---
 
 (def routes
   "Reitit route data. Each route maps to a Ring handler.
    See: https://cljdoc.org/d/metosin/reitit/CURRENT/doc/ring/ring-router"
-  [["/" {:get {:handler (fn [_] (response/redirect "/dashboard"))}}]
-   ["/dashboard" {:get {:handler dashboard-page/handler}}]])
+  [["/"           {:get {:handler (fn [_] (response/redirect "/library"))}}]
+   ["/library"    {:get {:handler library-page/handler}}]
+   ["/dashboard"  {:get {:handler dashboard-page/handler}}]
+   ["/api/ingest" {:post {:handler ingest-handler}}]
+   ["/api/content" {:get {:handler list-content-handler}}]])
 
 ;; --- Handler ---
 
@@ -71,9 +135,15 @@
   @(promise))
 
 (comment
-  ;; Start/stop from REPL
   (start! {:port 3000})
   (stop!)
 
-  ;; Test handler directly
-  ((app-handler) {:request-method :get :uri "/dashboard"}))
+  ;; Test API directly
+  ((app-handler) {:request-method :get :uri "/api/content"})
+
+  ;; Test ingest
+  ((app-handler) {:request-method :post
+                  :uri "/api/ingest"
+                  :body (java.io.StringReader.
+                          (pr-str {:text "# Test\n\nHello world."
+                                   :title "Test Article"}))}))

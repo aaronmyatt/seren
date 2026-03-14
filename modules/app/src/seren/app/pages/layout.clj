@@ -17,7 +17,7 @@
    opts map:
      :title   - page title string
      :body    - hiccup data structure for page content
-     :modules - vector of keyword module names, e.g. [:shared :login]"
+     :modules - vector of keyword module names, e.g. [:shared :library]"
   [{:keys [title body modules]}]
   (str
     (h/html
@@ -25,8 +25,15 @@
       [:html {:lang "en"}
        [:head
         [:meta {:charset "UTF-8"}]
-        [:meta {:name "viewport" :content "width=device-width, initial-scale=1.0"}]
+        [:meta {:name "viewport"
+                :content "width=device-width, initial-scale=1.0, user-scalable=no"}]
         [:title title]
+
+        ;; PWA meta tags
+        ;; See: https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps
+        [:meta {:name "theme-color" :content "#7c3aed"}]
+        [:meta {:name "apple-mobile-web-app-capable" :content "yes"}]
+        [:meta {:name "apple-mobile-web-app-status-bar-style" :content "black-translucent"}]
 
         ;; Open Props — base design tokens from CDN
         ;; See: https://open-props.style/#getting-started
@@ -51,12 +58,10 @@
           [:script {:src (str "/js/" (name m) ".js")}])]])))
 
 (comment
-  ;; Render a minimal test page
   (page {:title "Test"
          :body [:main [:h1 "Hello"]]
          :modules [:shared]})
 
-  ;; Render with multiple modules
-  (page {:title "Login"
-         :body [:main [:p "Login form here"]]
-         :modules [:shared :login]}))
+  (page {:title "Library"
+         :body [:main [:p "Library page"]]
+         :modules [:shared :library]}))

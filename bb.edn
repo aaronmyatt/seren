@@ -102,6 +102,30 @@
   {:doc  "Stop PocketBase server"
    :task (shell "pkill" "-f" ".pocketbase/pocketbase serve")}
 
+  ;; --- Linting ---
+  ;; clj-kondo catches unbalanced parens, arity errors, unused vars, and more
+  ;; — all statically, without running the code.
+  ;; See: https://github.com/clj-kondo/clj-kondo
+
+  lint:install
+  {:doc  "Install clj-kondo linter locally"
+   :task (shell "bash" "scripts/ensure-kondo.sh")}
+
+  lint
+  {:doc  "Lint all source files with clj-kondo"
+   :task (let [kondo (or (some #(when (.exists (clojure.java.io/file %))
+                                  %)
+                                ["clj-kondo" ".clj-kondo-bin/clj-kondo"])
+                         (do (println "clj-kondo not found. Run: bb lint:install")
+                             (System/exit 1)))]
+           (shell kondo
+                  "--lint"
+                  "modules/core/src"
+                  "modules/adapter/src"
+                  "modules/app/src"
+                  "shared/src"
+                  "modules/core/test"))}
+
   ;; --- Utility ---
   clean
   {:doc  "Remove build artifacts"

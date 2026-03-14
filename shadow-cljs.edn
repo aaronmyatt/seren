@@ -20,7 +20,10 @@
    :modules
    {;; Shared module — loaded on every page (PB client, island helpers)
     :shared    {:entries [seren.app.islands.shared]}
-    ;; Dashboard page island — upcoming reviews, content feed
+    ;; Library page island — content ingestion form + content feed
+    :library   {:entries [seren.app.islands.library]
+                :depends-on #{:shared}}
+    ;; Dashboard page island — stats, upcoming reviews
     :dashboard {:entries [seren.app.islands.dashboard]
                 :depends-on #{:shared}}}
    :devtools  {:after-load seren.app.islands.shared/on-reload}}

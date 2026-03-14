@@ -238,17 +238,19 @@ scheduled task checks `reviews.due_at` and triggers pushes for due items.
 
 ## Implementation Phases
 
-### Phase 1 — Content Ingestion & Storage (Manual Entry)
+### Phase 1 — Content Ingestion & Storage (Manual Entry) ✅
 > *"As a learner I want my content remembered"*
 > Ingestion path: **PWA manual entry** (paste URL or raw text)
 
-- [ ] Rename template: `bb rename seren`
-- [ ] Define domain schemas in `core/schemas.cljc`
-- [ ] `core/content.cljc` — normalise, chunk, extract headings
-- [ ] `adapter/content_store.clj/.cljs` — PocketBase CRUD
-- [ ] `app/server.clj` — `POST /api/ingest` endpoint
-- [ ] PWA library page: paste URL or raw text, see ingested content
-- [ ] **Tests**: TDD each core function, property-based schema tests
+- [x] Rename template: `bb rename seren`
+- [x] Define domain schemas in `core/schemas.cljc` (Content, Chunk, Heading, ContentInput)
+- [x] `core/content.cljc` — normalise, chunk, extract headings, summarise, extract tags
+- [x] `adapter/content_store.clj/.cljs` — file-based (JVM) + atom-based (CLJS) CRUD
+- [x] `app/server.clj` — `POST /api/ingest` + `GET /api/content` EDN endpoints
+- [x] PWA library page: paste text, optional title/URL, see ingested content cards
+- [x] Dashboard page: content stats (item count, chunk count)
+- [x] **Tests**: TDD core content functions (14 test cases, schema validation)
+- [x] **Tooling**: clj-kondo linting (`bb lint`) + pre-commit hook
 
 ### Phase 2 — Spaced Repetition Scheduler
 > *"As a learner I want to be reminded of content I consumed recently"*
