@@ -1,0 +1,49 @@
+/* Design token layer: Open Props + Shoelace theme mapping.
+ *
+ * Open Props provides CSS custom properties for spacing, color, typography.
+ * Shoelace uses its own --sl-* token system. We map sl-* to Open Props values
+ * so the two systems stay in sync.
+ *
+ * See: https://open-props.style/
+ * See: https://shoelace.style/getting-started/customizing
+ */
+
+/* 1. Open Props — base design tokens */
+@import "https://unpkg.com/open-props";
+@import "https://unpkg.com/open-props/normalize.min.css";
+@import "https://unpkg.com/open-props/easings.min.css";
+
+/* 2. Shoelace theme override — map sl-* vars to Open Props values */
+:root {
+  --sl-color-primary-50: var(--blue-0);
+  --sl-color-primary-100: var(--blue-1);
+  --sl-color-primary-200: var(--blue-2);
+  --sl-color-primary-300: var(--blue-3);
+  --sl-color-primary-400: var(--blue-4);
+  --sl-color-primary-500: var(--blue-5);
+  --sl-color-primary-600: var(--blue-6);
+  --sl-color-primary-700: var(--blue-7);
+  --sl-color-primary-800: var(--blue-8);
+  --sl-color-primary-900: var(--blue-9);
+
+  --sl-font-sans: var(--font-sans);
+  --sl-font-mono: var(--font-mono);
+  --sl-border-radius-medium: var(--radius-2);
+  --sl-input-border-radius-medium: var(--radius-2);
+  --sl-spacing-medium: var(--size-3);
+}
+
+/* 3. Dark mode — override surface/text tokens via prefers-color-scheme */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --sl-color-neutral-0: var(--gray-9);
+    --sl-color-neutral-50: var(--gray-8);
+    --sl-color-neutral-100: var(--gray-7);
+    --sl-color-neutral-200: var(--gray-6);
+    --sl-color-neutral-300: var(--gray-5);
+    --sl-color-neutral-700: var(--gray-3);
+    --sl-color-neutral-800: var(--gray-2);
+    --sl-color-neutral-900: var(--gray-1);
+    --sl-color-neutral-1000: var(--gray-0);
+  }
+}

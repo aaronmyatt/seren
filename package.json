@@ -1,0 +1,19 @@
+{
+  "name": "clojure-fcis",
+  "version": "0.1.0",
+  "private": true,
+  "description": "FCIS project template with ClojureScript support",
+  "scripts": {
+    "postinstall": "./scripts/ensure-clojure.sh && ./scripts/ensure-bb.sh",
+    "dev": "shadow-cljs watch browser",
+    "build": "shadow-cljs release browser",
+    "test": "shadow-cljs compile test",
+    "test:watch": "shadow-cljs watch test"
+  },
+  "dependencies": {
+    "pocketbase": "^0.26.0"
+  },
+  "devDependencies": {
+    "shadow-cljs": "^2.28.20"
+  }
+}

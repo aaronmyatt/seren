@@ -1,0 +1,125 @@
+{:tasks
+ {;; --- REPL ---
+  nrepl
+  {:doc  "Start nREPL with all modules loaded"
+   :task (shell "clojure -M:dev:nrepl")}
+
+  ;; --- Tests ---
+  test:all
+  {:doc  "Run all tests across all modules"
+   :task (shell "clojure -X:test")}
+
+  test:core
+  {:doc  "Run Core module tests only"
+   :task (shell "clojure -X:test/core")}
+
+  test:adapter
+  {:doc  "Run Adapter module tests only"
+   :task (shell "clojure -X:test/adapter")}
+
+  test:app
+  {:doc  "Run App module tests only"
+   :task (shell "clojure -X:test/app")}
+
+  ;; --- CLI per layer ---
+  core:cli
+  {:doc  "CLI for Core layer functions. Usage: bb core:cli list|describe|run [args...]"
+   :task (apply shell "clojure -M:cli/core" "--namespaces" "fcis.core.user" "--" *command-line-args*)}
+
+  adapter:cli
+  {:doc  "CLI for Adapter layer functions. Usage: bb adapter:cli list|describe|run [args...]"
+   :task (apply shell "clojure -M:cli/adapter" "--namespaces" "fcis.adapter.user-store" "--" *command-line-args*)}
+
+  app:cli
+  {:doc  "CLI for App layer functions. Usage: bb app:cli list|describe|run [args...]"
+   :task (apply shell "clojure -M:cli/app" "--namespaces" "fcis.app.main" "--" *command-line-args*)}
+
+  ;; --- Web Server ---
+  server:start
+  {:doc  "Start Ring server on port 3000. Run cljs:watch in another terminal."
+   :task (shell "clojure" "-M:dev" "-e"
+                "(do (require 'fcis.app.server) (fcis.app.server/start! {:port 3000}) @(promise))")}
+
+  ;; --- Combined Dev ---
+  dev:stop
+  {:doc  "Stop any leftover dev processes (PocketBase, shadow-cljs)."
+   :task (do
+           ;; shadow-cljs has a proper stop command that shuts down its JVM server
+           ;; See: https://shadow-cljs.github.io/docs/UsersGuide.html#_server_mode
+           (try (shell {:continue true} "npx" "shadow-cljs" "stop") (catch Exception _))
+           (try (shell {:continue true} "pkill" "-f" ".pocketbase/pocketbase serve") (catch Exception _))
+           (Thread/sleep 500)
+           (println "Dev processes stopped."))}
+
+  dev
+  {:doc  "Start PocketBase + shadow-cljs + Ring server. Ctrl-C stops all."
+   :depends [dev:stop]
+   :task (let [;; babashka.process/process starts a subprocess without blocking.
+               ;; destroy-tree kills the process AND all descendants (child JVMs).
+               ;; See: https://book.babashka.org/#_babashka_process
+               pb   (process [".pocketbase/pocketbase" "serve"
+                              "--dir=.pocketbase/pb_data"
+                              "--http=127.0.0.1:8090"]
+                             {:inherit true})
+               _    (do (println "▸ PocketBase starting on :8090...")
+                        (Thread/sleep 1000))
+               cljs (process ["npx" "shadow-cljs" "watch" "browser"]
+                             {:inherit true})
+               _    (do (println "▸ shadow-cljs starting...")
+                        (Thread/sleep 3000))]
+           (println "▸ Starting Ring server on :3000...")
+           (try
+             ;; Ring runs in the foreground — Ctrl-C lands here
+             (shell "clojure" "-M:dev" "-e"
+                    "(do (require 'fcis.app.server) (fcis.app.server/start! {:port 3000}) @(promise))")
+             (finally
+               ;; Ctrl-C: destroy entire process trees, not just parent PIDs
+               (println "\n▸ Shutting down all processes...")
+               (destroy-tree cljs)
+               (destroy-tree pb)
+               (println "▸ Done."))))
+   :requires ([babashka.process :refer [process destroy-tree]])}
+
+  ;; --- ClojureScript ---
+  cljs:watch
+  {:doc  "Start shadow-cljs dev server with hot reload (browser at http://localhost:8000)"
+   :task (shell "npx shadow-cljs watch browser")}
+
+  cljs:release
+  {:doc  "Build optimized ClojureScript bundle"
+   :task (shell "npx shadow-cljs release browser")}
+
+  test:cljs
+  {:doc  "Run ClojureScript tests via Node.js"
+   :task (shell "npx shadow-cljs compile test")}
+
+  ;; --- PocketBase ---
+  pb:install
+  {:doc  "Download the latest PocketBase binary for this platform"
+   :task (shell "bb" "--file" "scripts/pocketbase.bb")}
+
+  pb:start
+  {:doc  "Start PocketBase server (admin: http://127.0.0.1:8090/_/)"
+   :task (shell ".pocketbase/pocketbase" "serve"
+                "--dir=.pocketbase/pb_data"
+                "--http=127.0.0.1:8090")}
+
+  pb:stop
+  {:doc  "Stop PocketBase server"
+   :task (shell "pkill" "-f" ".pocketbase/pocketbase serve")}
+
+  ;; --- Utility ---
+  clean
+  {:doc  "Remove build artifacts"
+   :task (shell "rm -rf target .cpcache out public/js modules/core/.cpcache modules/adapter/.cpcache modules/app/.cpcache")}
+
+  deps
+  {:doc  "Download all dependencies (JVM + npm + PocketBase)"
+   :task (do (shell "clojure -P -M:dev:nrepl:test:cljs")
+             (shell "npm install")
+             (shell "bb" "pb:install"))}
+
+  ;; --- Template ---
+  rename
+  {:doc  "Rename the namespace prefix for a new project. Usage: bb rename <new-name>"
+   :task (apply shell "bb" "--file" "scripts/rename.bb" *command-line-args*)}}}

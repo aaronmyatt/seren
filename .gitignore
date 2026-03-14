@@ -1,0 +1,49 @@
+# Clojure
+target/
+.cpcache/
+*/.cpcache/
+*/*/.cpcache/
+*.jar
+*.class
+
+# nREPL
+.nrepl-port
+.nrepl-history
+
+# Editor
+.idea/
+*.iml
+.vscode/
+.calva/
+*.swp
+*.swo
+*~
+
+# Clojure tooling
+.lsp/
+.clj-kondo/
+
+# Claude Code local settings
+.claude/settings.local.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# ClojureScript / shadow-cljs
+node_modules/
+out/
+public/js/
+.shadow-cljs/
+
+# Clojure CLI (local install)
+.clojure-tools/
+
+# Babashka (local install)
+.bb/
+
+# PocketBase (binary + data)
+.pocketbase/
+
+# Test output
+/tmp/
