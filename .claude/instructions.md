@@ -1,29 +1,29 @@
-# Claude Code Instructions for FCIS Project
+# Claude Code Instructions for Seren
 
 ## Project Overview
 
-This is a Clojure FCIS (Functional Core, Imperative Shell) monorepo. Read `CLAUDE.md` in the project root for architecture, conventions, and agent workflow rules (TDD, comments, documentation policy).
+Seren is a voice-driven spaced repetition learning agent built as a Clojure FCIS (Functional Core, Imperative Shell) monorepo. Read `CLAUDE.md` in the project root for architecture, conventions, and agent workflow rules (TDD, comments, documentation policy). Read `plan.md` for the implementation roadmap.
 
 ## When Modifying Code
 
 ### Adding a function to Core
-1. Write the function in the appropriate namespace under `modules/core/src/fcis/core/`
+1. Write the function in the appropriate namespace under `modules/core/src/seren/core/`
 2. Add a docstring explaining what it does
 3. Add `(m/=> fn-name [:=> [:cat <inputs>] <output>])` immediately after the `defn`
-4. Use schemas from `fcis.core.schemas` or `fcis.schemas.common` where possible
+4. Use schemas from `seren.core.schemas` or `seren.schemas.common` where possible
 5. Add examples to the `(comment ...)` block at the end of the file
-6. Write tests in `modules/core/test/fcis/core/` — include at least one property-based test for non-trivial functions
+6. Write tests in `modules/core/test/seren/core/` — include at least one property-based test for non-trivial functions
 7. Run `bb test:core` to verify
 
 ### Adding a function to Adapter
-1. Write the function under `modules/adapter/src/fcis/adapter/`
+1. Write the function under `modules/adapter/src/seren/adapter/`
 2. Pass all dependencies (file paths, connections, etc.) as arguments — no global state
 3. Follow the same schema/docstring/comment conventions as Core
 4. Write integration tests with the `temp-dir-fixture` pattern (see existing tests)
 5. Run `bb test:adapter` to verify
 
 ### Adding a function to App
-1. Write the function under `modules/app/src/fcis/app/`
+1. Write the function under `modules/app/src/seren/app/`
 2. Follow the same conventions
 3. Run `bb test:app` to verify
 
@@ -34,7 +34,7 @@ This is a Clojure FCIS (Functional Core, Imperative Shell) monorepo. Read `CLAUD
 - Use `common/Email` for email strings
 - Use `common/ValidationResult` for single validation results
 - Use `common/ValidationResults` for aggregated results with error lists
-- Define new domain types in the module's `schemas.clj`
+- Define new domain types in the module's `schemas.cljc`
 
 ## Error Handling
 

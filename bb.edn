@@ -22,30 +22,29 @@
    :task (shell "clojure -X:test/app")}
 
   ;; --- CLI per layer ---
+  ;; Namespaces will be updated as domain modules are added in Phase 1+
   core:cli
   {:doc  "CLI for Core layer functions. Usage: bb core:cli list|describe|run [args...]"
-   :task (apply shell "clojure -M:cli/core" "--namespaces" "fcis.core.user" "--" *command-line-args*)}
+   :task (apply shell "clojure -M:cli/core" "--namespaces" "seren.core.schemas" "--" *command-line-args*)}
 
   adapter:cli
   {:doc  "CLI for Adapter layer functions. Usage: bb adapter:cli list|describe|run [args...]"
-   :task (apply shell "clojure -M:cli/adapter" "--namespaces" "fcis.adapter.user-store" "--" *command-line-args*)}
+   :task (apply shell "clojure -M:cli/adapter" "--namespaces" "seren.app.main" "--" *command-line-args*)}
 
   app:cli
   {:doc  "CLI for App layer functions. Usage: bb app:cli list|describe|run [args...]"
-   :task (apply shell "clojure -M:cli/app" "--namespaces" "fcis.app.main" "--" *command-line-args*)}
+   :task (apply shell "clojure -M:cli/app" "--namespaces" "seren.app.main" "--" *command-line-args*)}
 
   ;; --- Web Server ---
   server:start
   {:doc  "Start Ring server on port 3000. Run cljs:watch in another terminal."
    :task (shell "clojure" "-M:dev" "-e"
-                "(do (require 'fcis.app.server) (fcis.app.server/start! {:port 3000}) @(promise))")}
+                "(do (require 'seren.app.server) (seren.app.server/start! {:port 3000}) @(promise))")}
 
   ;; --- Combined Dev ---
   dev:stop
   {:doc  "Stop any leftover dev processes (PocketBase, shadow-cljs)."
    :task (do
-           ;; shadow-cljs has a proper stop command that shuts down its JVM server
-           ;; See: https://shadow-cljs.github.io/docs/UsersGuide.html#_server_mode
            (try (shell {:continue true} "npx" "shadow-cljs" "stop") (catch Exception _))
            (try (shell {:continue true} "pkill" "-f" ".pocketbase/pocketbase serve") (catch Exception _))
            (Thread/sleep 500)
@@ -54,10 +53,7 @@
   dev
   {:doc  "Start PocketBase + shadow-cljs + Ring server. Ctrl-C stops all."
    :depends [dev:stop]
-   :task (let [;; babashka.process/process starts a subprocess without blocking.
-               ;; destroy-tree kills the process AND all descendants (child JVMs).
-               ;; See: https://book.babashka.org/#_babashka_process
-               pb   (process [".pocketbase/pocketbase" "serve"
+   :task (let [pb   (process [".pocketbase/pocketbase" "serve"
                               "--dir=.pocketbase/pb_data"
                               "--http=127.0.0.1:8090"]
                              {:inherit true})
@@ -69,11 +65,9 @@
                         (Thread/sleep 3000))]
            (println "▸ Starting Ring server on :3000...")
            (try
-             ;; Ring runs in the foreground — Ctrl-C lands here
              (shell "clojure" "-M:dev" "-e"
-                    "(do (require 'fcis.app.server) (fcis.app.server/start! {:port 3000}) @(promise))")
+                    "(do (require 'seren.app.server) (seren.app.server/start! {:port 3000}) @(promise))")
              (finally
-               ;; Ctrl-C: destroy entire process trees, not just parent PIDs
                (println "\n▸ Shutting down all processes...")
                (destroy-tree cljs)
                (destroy-tree pb)

@@ -2,7 +2,7 @@
 ;; Dependencies and source paths are read from deps.edn via the :cljs alias
 ;;
 ;; Per-page module splitting: each HTML page loads only its own JS module.
-;; The :shared module contains common code (cljs.core, PocketBase client, auth utils).
+;; The :shared module contains common code (cljs.core, PocketBase client, island helpers).
 ;; Page modules depend on :shared and contain page-specific island behavior.
 ;;
 ;; See: https://shadow-cljs.github.io/docs/UsersGuide.html#_code_splitting
@@ -18,15 +18,12 @@
    :output-dir "public/js"
    :asset-path "/js"
    :modules
-   {;; Shared module — loaded on every page (PB client, auth utils, island helpers)
-    :shared    {:entries [fcis.app.islands.shared]}
-    ;; Login page island — form handling, PocketBase authWithPassword
-    :login     {:entries [fcis.app.islands.login]
-                :depends-on #{:shared}}
-    ;; Dashboard page island — auth guard, user display, logout
-    :dashboard {:entries [fcis.app.islands.dashboard]
+   {;; Shared module — loaded on every page (PB client, island helpers)
+    :shared    {:entries [seren.app.islands.shared]}
+    ;; Dashboard page island — upcoming reviews, content feed
+    :dashboard {:entries [seren.app.islands.dashboard]
                 :depends-on #{:shared}}}
-   :devtools  {:after-load fcis.app.islands.shared/on-reload}}
+   :devtools  {:after-load seren.app.islands.shared/on-reload}}
 
   ;; Node.js test runner — runs all *-test namespaces
   :test

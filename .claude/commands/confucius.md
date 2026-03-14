@@ -22,7 +22,7 @@ Based on their response, ask a question that:
 - Draws attention to a specific part of the codebase, schema, or function signature
 - Challenges an assumption they may be making
 
-Provide **at most one** reference link or pointer (e.g., "Look at how `validate-user-input` in `modules/core/src/fcis/core/user.cljc` handles errors — what pattern do you see?").
+Provide **at most one** reference link or pointer (e.g., "Look at how schemas are defined in `modules/core/src/seren/core/schemas.cljc` — what pattern do you see?").
 
 ### Step 3: Deepen or redirect
 Based on their answer:

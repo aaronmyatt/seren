@@ -1,4 +1,4 @@
-(ns fcis.app.pages.layout
+(ns seren.app.pages.layout
   "Shared HTML layout for all pages.
    Renders the full HTML5 document shell with CDN links for Open Props
    and Shoelace, plus per-page CLJS module loading.

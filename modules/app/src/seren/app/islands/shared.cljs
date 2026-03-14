@@ -1,10 +1,6 @@
-(ns fcis.app.islands.shared
+(ns seren.app.islands.shared
   "Shared CLJS island module — loaded on every page.
-   Initializes the PocketBase client and provides auth utilities
-   and DOM helpers for the island pattern.
-
-   The PocketBase JS SDK stores auth tokens in localStorage automatically.
-   See: https://github.com/pocketbase/js-sdk
+   Provides DOM helpers for the island pattern.
 
    Island pattern: server-rendered HTML has data-island attributes.
    Island modules use find-island to locate mount points and attach behavior.
@@ -12,6 +8,8 @@
   (:require ["pocketbase" :default PocketBase]))
 
 ;; --- PocketBase client ---
+;; PocketBase is used for persisting content, reviews, and scores.
+;; See: https://github.com/pocketbase/js-sdk
 
 (defonce ^:private pb-client (atom nil))
 
@@ -29,25 +27,6 @@
   "Returns the PocketBase client instance."
   []
   @pb-client)
-
-;; --- Auth utilities ---
-
-(defn authenticated?
-  "Returns true if the user has a valid auth token in PocketBase."
-  []
-  (when-let [^js client (pb)]
-    (.. client -authStore -isValid)))
-
-(defn current-user
-  "Returns the current authenticated user record, or nil."
-  []
-  (when (authenticated?)
-    (some-> (pb) .-authStore .-record)))
-
-(defn logout!
-  "Clears the PocketBase auth store and removes the stored token."
-  []
-  (some-> (pb) .-authStore .clear))
 
 ;; --- Island DOM helpers ---
 
@@ -71,12 +50,12 @@
   "Called on page load. Initializes PocketBase client."
   []
   (init-pb! pb-url)
-  (js/console.log "[shared] PocketBase client initialized"))
+  (js/console.log "[seren] PocketBase client initialized"))
 
 (defn on-reload
   "Called by shadow-cljs after hot reload."
   []
-  (js/console.log "[shared] hot reload"))
+  (js/console.log "[seren] hot reload"))
 
 ;; Initialize on first load
 (init)

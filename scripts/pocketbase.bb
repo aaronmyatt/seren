@@ -48,7 +48,7 @@
   (println "Checking latest PocketBase version...")
   (let [resp (http/get "https://api.github.com/repos/pocketbase/pocketbase/releases/latest"
                        {:headers {"Accept" "application/vnd.github.v3+json"
-                                  "User-Agent" "clojure-fcis-template"}})
+                                  "User-Agent" "clojure-seren-template"}})
         body (json/parse-string (:body resp) true)
         tag  (:tag_name body)]
     (when-not tag

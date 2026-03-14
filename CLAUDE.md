@@ -70,35 +70,35 @@ Each layer has a CLI for discovering and invoking functions (JVM, reads `.cljc` 
 
 ```bash
 bb core:cli list                                    # List all Core functions
-bb core:cli describe fcis.core.user/validate-email  # Show schema and docstring
-bb core:cli run fcis.core.user/validate-email '"test@example.com"'  # Invoke with EDN args
+bb core:cli describe seren.core.user/validate-email  # Show schema and docstring
+bb core:cli run seren.core.user/validate-email '"test@example.com"'  # Invoke with EDN args
 bb adapter:cli list                                 # List Adapter functions (JVM version)
 bb app:cli list                                     # List App functions
 ```
 
 ## Schemas
 
-- **Shared schemas** (used across modules): `shared/src/fcis/schemas/common.cljc`
-- **Domain schemas** (module-specific): `modules/<module>/src/fcis/<module>/schemas.cljc`
+- **Shared schemas** (used across modules): `shared/src/seren/schemas/common.cljc`
+- **Domain schemas** (module-specific): `modules/<module>/src/seren/<module>/schemas.cljc`
 - Schemas are plain EDN data — vectors and maps. Reference them in function schemas.
 
 ## File Placement
 
 | What | Where | Extension |
 |------|-------|-----------|
-| Pure business logic | `modules/core/src/fcis/core/` | `.cljc` |
-| Domain schemas | `modules/core/src/fcis/core/schemas.cljc` | `.cljc` |
-| JVM side-effectful code | `modules/adapter/src/fcis/adapter/` | `.clj` |
-| CLJS side-effectful code | `modules/adapter/src/fcis/adapter/` | `.cljs` |
-| Application wiring | `modules/app/src/fcis/app/` | `.cljc` |
-| Browser entry point | `modules/app/src/fcis/app/browser.cljs` | `.cljs` |
-| Cross-cutting schemas | `shared/src/fcis/schemas/common.cljc` | `.cljc` |
-| CLI runner (JVM-only) | `shared/src/fcis/cli/runner.clj` | `.clj` |
-| Tests | `modules/<module>/test/fcis/<module>/` | `.cljc` or `.clj`/`.cljs` |
+| Pure business logic | `modules/core/src/seren/core/` | `.cljc` |
+| Domain schemas | `modules/core/src/seren/core/schemas.cljc` | `.cljc` |
+| JVM side-effectful code | `modules/adapter/src/seren/adapter/` | `.clj` |
+| CLJS side-effectful code | `modules/adapter/src/seren/adapter/` | `.cljs` |
+| Application wiring | `modules/app/src/seren/app/` | `.cljc` |
+| Browser entry point | `modules/app/src/seren/app/browser.cljs` | `.cljs` |
+| Cross-cutting schemas | `shared/src/seren/schemas/common.cljc` | `.cljc` |
+| CLI runner (JVM-only) | `shared/src/seren/cli/runner.clj` | `.clj` |
+| Tests | `modules/<module>/test/seren/<module>/` | `.cljc` or `.clj`/`.cljs` |
 
 ## Starting a New Project from This Template
 
-After cloning or creating a repo from this template, rename the `fcis` namespace prefix to your project name:
+After cloning or creating a repo from this template, rename the `seren` namespace prefix to your project name:
 
 ```bash
 bb rename myproject   # Renames all namespaces, directories, and config references
@@ -106,7 +106,7 @@ bb test:all           # Verify JVM tests pass
 bb test:cljs          # Verify CLJS tests pass
 ```
 
-This replaces `fcis` everywhere — namespace declarations, directory paths, `deps.edn`, `shadow-cljs.edn`, `package.json`, and this file. The script validates that the name is a valid Clojure namespace segment (lowercase, hyphens allowed). Run it once immediately after cloning.
+This replaces `seren` everywhere — namespace declarations, directory paths, `deps.edn`, `shadow-cljs.edn`, `package.json`, and this file. The script validates that the name is a valid Clojure namespace segment (lowercase, hyphens allowed). Run it once immediately after cloning.
 
 ## PocketBase
 

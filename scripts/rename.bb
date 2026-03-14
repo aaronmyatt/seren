@@ -1,14 +1,14 @@
 #!/usr/bin/env bb
 
-;; Renames the `fcis` namespace prefix throughout the project template.
+;; Renames the `seren` namespace prefix throughout the project template.
 ;; Usage: bb rename <new-name>
 ;;
 ;; The new name must be a valid Clojure namespace segment: lowercase letters,
 ;; digits, and hyphens (e.g., "myproject", "cool-app").
 ;;
 ;; This script:
-;;   1. Renames directories (modules/*/src/fcis/ → modules/*/src/<new>/)
-;;   2. Replaces `fcis` in all source, config, and doc files
+;;   1. Renames directories (modules/*/src/seren/ → modules/*/src/<new>/)
+;;   2. Replaces `seren` in all source, config, and doc files
 ;;   3. Cleans build artifacts that cache old namespace references
 ;;
 ;; See: https://book.babashka.org/#_file_system_utilities
@@ -17,10 +17,10 @@
          '[babashka.process :refer [shell]]
          '[clojure.string :as str])
 
-(def old-ns "fcis")
+(def old-ns "seren")
 
 (def dir-roots
-  "Directory trees containing `fcis/` segments that need renaming."
+  "Directory trees containing `seren/` segments that need renaming."
   ["modules/core/src"
    "modules/core/test"
    "modules/adapter/src"
@@ -30,7 +30,7 @@
    "shared/src"])
 
 (def file-globs
-  "Glob patterns for files whose contents need `fcis` replaced."
+  "Glob patterns for files whose contents need `seren` replaced."
   ["**/*.clj"
    "**/*.cljs"
    "**/*.cljc"
@@ -58,7 +58,7 @@
          "Must start with a lowercase letter and contain only lowercase letters, digits, and hyphens.")))
 
 (defn rename-dirs!
-  "Renames `fcis/` directory segments to `new-name/` under each root.
+  "Renames `seren/` directory segments to `new-name/` under each root.
   Returns count of directories renamed."
   [new-name]
   (let [counter (atom 0)]
@@ -72,7 +72,7 @@
     @counter))
 
 (defn replace-in-files!
-  "Replaces all occurrences of `fcis` with `new-name` in matching files.
+  "Replaces all occurrences of `seren` with `new-name` in matching files.
   Returns count of files modified."
   [new-name]
   (let [counter (atom 0)

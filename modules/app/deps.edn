@@ -1,7 +1,7 @@
 {:paths ["src"]
  :deps {org.clojure/clojure {:mvn/version "1.12.0"}
         metosin/malli       {:mvn/version "0.20.0"}
-        fcis/adapter        {:local/root "../adapter"}}
+        seren/adapter        {:local/root "../adapter"}}
  :aliases
  {:test
   {:extra-paths ["test" "../../shared/src"]

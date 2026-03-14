@@ -3,43 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>FCIS Browser Demo</title>
+  <title>Seren</title>
   <style>
-    body { font-family: system-ui, sans-serif; max-width: 640px; margin: 2rem auto; padding: 0 1rem; }
-    code { background: #f0f0f0; padding: 0.2em 0.4em; border-radius: 3px; }
-    pre { background: #f0f0f0; padding: 1rem; border-radius: 6px; overflow-x: auto; }
+    body { font-family: system-ui, sans-serif; max-width: 640px; margin: 4rem auto; padding: 0 1rem; text-align: center; }
   </style>
 </head>
 <body>
-  <h1>FCIS Browser Demo</h1>
-  <p>Open your browser's <strong>Developer Console</strong> (F12 or Cmd+Option+J) to see the output.</p>
-  <p>The same pure Core functions that run on the JVM are running here in JavaScript.
-     Only the Adapter layer differs &mdash; file-based storage on JVM, atom-based in-memory storage here.</p>
-
-  <h2>What's happening</h2>
-  <pre>
-Core (pure, .cljc)     &rarr; validates &amp; creates users
-Adapter (.cljs)        &rarr; stores users in an atom (in-memory)
-App (.cljc)            &rarr; wires Core + Adapter together
-  </pre>
-
-  <h2>Try it yourself</h2>
-  <p>In the console, you can call functions directly:</p>
-  <pre>
-// Register a user through the full stack
-fcis.app.main.register_user_BANG_({
-  "store-dir": "demo",
-  name: "Charlie",
-  email: "charlie@example.com"
-})
-
-// List all users
-fcis.app.main.list_all_users({"store-dir": "demo"})
-
-// Pure validation (Core layer)
-fcis.core.user.validate_email("test@example.com")
-  </pre>
-
-  <script src="/js/main.js"></script>
+  <h1>Seren</h1>
+  <p>Your learning companion. Start the Ring server (<code>bb dev</code>) and visit <a href="/dashboard">/dashboard</a>.</p>
 </body>
 </html>

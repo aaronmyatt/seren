@@ -1,9 +1,9 @@
-(ns fcis.app.server
+(ns seren.app.server
   "Ring HTTP server with Reitit routing.
    Serves Hiccup-rendered HTML pages and static assets from public/.
 
-   Start in REPL:  (fcis.app.server/start! {:port 3000})
-   Stop:           (fcis.app.server/stop!)
+   Start in REPL:  (seren.app.server/start! {:port 3000})
+   Stop:           (seren.app.server/stop!)
 
    See: https://github.com/metosin/reitit#ring-router
    See: https://github.com/ring-clojure/ring/wiki/Static-Resources"
@@ -13,16 +13,14 @@
             [ring.middleware.content-type :refer [wrap-content-type]]
             [ring.middleware.not-modified :refer [wrap-not-modified]]
             [ring.util.response :as response]
-            [fcis.app.pages.login :as login-page]
-            [fcis.app.pages.dashboard :as dashboard-page]))
+            [seren.app.pages.dashboard :as dashboard-page]))
 
 ;; --- Routes ---
 
 (def routes
   "Reitit route data. Each route maps to a Ring handler.
    See: https://cljdoc.org/d/metosin/reitit/CURRENT/doc/ring/ring-router"
-  [["/" {:get {:handler (fn [_] (response/redirect "/login"))}}]
-   ["/login" {:get {:handler login-page/handler}}]
+  [["/" {:get {:handler (fn [_] (response/redirect "/dashboard"))}}]
    ["/dashboard" {:get {:handler dashboard-page/handler}}]])
 
 ;; --- Handler ---
@@ -54,7 +52,7 @@
     (throw (ex-info "Server already running" {:port port})))
   (let [srv (jetty/run-jetty (app-handler) {:port port :join? false})]
     (reset! server-atom srv)
-    (println (str "Ring server started on http://localhost:" port))
+    (println (str "Seren server started on http://localhost:" port))
     srv))
 
 (defn stop!
@@ -63,7 +61,7 @@
   (when-let [srv @server-atom]
     (.stop srv)
     (reset! server-atom nil)
-    (println "Ring server stopped.")))
+    (println "Seren server stopped.")))
 
 (defn -main
   "Entry point for running the server standalone.
@@ -78,4 +76,4 @@
   (stop!)
 
   ;; Test handler directly
-  ((app-handler) {:request-method :get :uri "/login"}))
+  ((app-handler) {:request-method :get :uri "/dashboard"}))

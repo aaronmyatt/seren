@@ -1,11 +1,11 @@
-(ns fcis.cli.runner
+(ns seren.cli.runner
   "Generic CLI runner that introspects Malli-annotated functions
    and exposes them as CLI commands.
 
    Usage:
-     clojure -M:cli/core --namespaces fcis.core.user -- list
-     clojure -M:cli/core --namespaces fcis.core.user -- describe fcis.core.user/validate-email
-     clojure -M:cli/core --namespaces fcis.core.user -- run fcis.core.user/validate-email '\"test@example.com\"'"
+     clojure -M:cli/core --namespaces seren.core.user -- list
+     clojure -M:cli/core --namespaces seren.core.user -- describe seren.core.user/validate-email
+     clojure -M:cli/core --namespaces seren.core.user -- run seren.core.user/validate-email '\"test@example.com\"'"
   (:require [malli.core :as m]
             [clojure.edn :as edn]
             [clojure.string :as str]

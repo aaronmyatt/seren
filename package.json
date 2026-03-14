@@ -1,8 +1,8 @@
 {
-  "name": "clojure-fcis",
+  "name": "seren",
   "version": "0.1.0",
   "private": true,
-  "description": "FCIS project template with ClojureScript support",
+  "description": "Seren — voice-driven spaced repetition learning agent",
   "scripts": {
     "postinstall": "./scripts/ensure-clojure.sh && ./scripts/ensure-bb.sh",
     "dev": "shadow-cljs watch browser",

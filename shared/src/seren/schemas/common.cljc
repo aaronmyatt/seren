@@ -1,4 +1,4 @@
-(ns fcis.schemas.common
+(ns seren.schemas.common
   "Cross-cutting schemas shared across all modules.
    Domain-specific schemas belong in their respective module's schemas.clj.")
 
