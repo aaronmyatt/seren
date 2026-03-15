@@ -68,11 +68,16 @@
    or :completed (finished, scored). Status drives dashboard filtering."
   [:enum :pending :due :completed])
 
-(def ReviewShape
-  "The presentation shape for a review session. Progressive difficulty:
-   :headings-only → :summary → :keyword-blanks → :free-recall.
-   See plan.md § 'Review Shapes (Content Views)' for examples."
-  [:enum :headings-only :summary :keyword-blanks :free-recall])
+(def ScaffoldLevel
+  "The level of scaffolding offered during a free-recall review session.
+   Every review starts with free recall (the user speaks/types from memory).
+   Scaffolds are progressively stronger hints for when the user has struggled:
+     :none           → No hint (default, maximum retrieval practice benefit)
+     :headings       → Show section headings only (lightest hint)
+     :summary        → Show extractive summary (medium hint)
+     :keyword-blanks → Show text with key terms blanked (strongest hint)
+   See plan.md § 'Review Flow: Free Recall + Scaffolding'"
+  [:enum :none :headings :summary :keyword-blanks])
 
 (def Quality
   "SM-2 quality score (0-5). Maps to recall accuracy:
@@ -95,7 +100,7 @@
    [:id common/Id]
    [:content-id common/Id]
    [:status ReviewStatus]
-   [:shape ReviewShape]
+   [:scaffold ScaffoldLevel]
    [:interval :int]                ;; days until next review (0 = new)
    [:ease-factor EaseFactor]
    [:repetitions :int]             ;; number of successful consecutive recalls

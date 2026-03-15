@@ -4,6 +4,7 @@
    Start a REPL with: bb nrepl
    Then this namespace is loaded automatically."
   (:require [seren.core.content :as content]
+            [seren.core.review :as review]
             [seren.core.scheduler :as sched]
             [seren.core.schemas :as core-schemas]
             [seren.adapter.content-store :as content-store]

@@ -25,6 +25,9 @@
                 :depends-on #{:shared}}
     ;; Dashboard page island — stats, upcoming reviews
     :dashboard {:entries [seren.app.islands.dashboard]
+                :depends-on #{:shared}}
+    ;; Review session island — free recall + scaffold hints
+    :review    {:entries [seren.app.islands.review]
                 :depends-on #{:shared}}}
    :devtools  {:after-load seren.app.islands.shared/on-reload}}
 

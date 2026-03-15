@@ -130,7 +130,7 @@
     (let [review (sched/initial-review "content-123" 1710000000000)]
       (is (= "content-123" (:content-id review)))
       (is (= :pending (:status review)))
-      (is (= :headings-only (:shape review)))
+      (is (= :none (:scaffold review)))
       (is (= 0 (:interval review)))
       (is (= 2.5 (:ease-factor review)))
       (is (= 0 (:repetitions review)))

@@ -188,10 +188,13 @@ header p {
 }
 
 .review-card {
+  display: block;
   padding: var(--size-3);
   border: var(--border-size-1) solid var(--gray-3);
   border-radius: var(--radius-2);
   background: var(--surface-2);
+  text-decoration: none;
+  color: inherit;
   transition: border-color 0.15s ease;
 }
 
@@ -225,4 +228,88 @@ header p {
   font-size: var(--font-size-00);
   color: var(--orange-7);
   font-weight: var(--font-weight-5);
+}
+
+/* --- Review session page (Phase 3) --- */
+
+.page-review .recall-area,
+.page-review .scaffold-area,
+.page-review .quality-area,
+.page-review .result-area {
+  margin-block-end: var(--size-4);
+}
+
+.page-review sl-card {
+  inline-size: 100%;
+}
+
+.page-review sl-textarea {
+  margin-block-end: var(--size-3);
+}
+
+.recall-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--size-2);
+}
+
+.recall-actions sl-button[variant="primary"] {
+  flex: 1;
+}
+
+/* Scaffold hint area */
+.scaffold-area .scaffold-content {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-0);
+  color: var(--gray-7);
+  white-space: pre-wrap;
+  line-height: var(--font-lineheight-3);
+}
+
+.scaffold-area .scaffold-content p {
+  margin-block-end: var(--size-1);
+}
+
+/* Quality self-assessment buttons */
+.quality-buttons {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--size-2);
+  margin-block-start: var(--size-3);
+}
+
+.quality-buttons sl-button {
+  inline-size: 100%;
+}
+
+/* Result area */
+.result-summary {
+  text-align: center;
+  padding: var(--size-3);
+}
+
+.result-summary h3 {
+  font-size: var(--font-size-3);
+  margin-block-end: var(--size-2);
+  color: var(--violet-9);
+}
+
+.result-summary p {
+  color: var(--gray-7);
+  margin-block-end: var(--size-4);
+}
+
+.result-link {
+  display: inline-block;
+  padding: var(--size-2) var(--size-5);
+  border-radius: var(--radius-2);
+  background: var(--violet-9);
+  color: white;
+  text-decoration: none;
+  font-weight: var(--font-weight-5);
+}
+
+.result-link:hover {
+  background: var(--violet-7);
 }

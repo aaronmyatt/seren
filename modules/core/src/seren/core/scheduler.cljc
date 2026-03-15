@@ -106,15 +106,13 @@
 
    Called when content is first ingested — the review is immediately :pending
    with due-at set to `now`, so it appears in the dashboard right away.
-   The starting shape is :headings-only (easiest prompt).
-
-   Phase 2+ will pick the shape based on repetition count."
+   Scaffold defaults to :none (pure free recall)."
   [content-id now-ms]
   {:id          (str #?(:clj  (java.util.UUID/randomUUID)
                         :cljs (random-uuid)))
    :content-id  content-id
    :status      :pending
-   :shape       :headings-only
+   :scaffold    :none
    :interval    0
    :ease-factor 2.5
    :repetitions 0

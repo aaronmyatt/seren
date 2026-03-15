@@ -91,24 +91,27 @@
       (< hours 24) (str "Overdue " (Math/round hours) "h")
       :else        (str "Overdue " (Math/round (/ hours 24)) "d"))))
 
-(defn- shape-label
-  "Returns a human-readable label for a review shape keyword."
-  [shape]
-  (case shape
-    :headings-only  "Headings only"
-    :summary        "Summary"
-    :keyword-blanks "Keyword blanks"
-    :free-recall    "Free recall"
-    (str shape)))
+(defn- scaffold-label
+  "Returns a human-readable label for a scaffold level keyword.
+   See plan.md § 'Review Flow: Free Recall + Scaffolding'"
+  [scaffold]
+  (case scaffold
+    :none           "Free recall"
+    :headings       "Headings hint"
+    :summary        "Summary hint"
+    :keyword-blanks "Fill-in-blanks hint"
+    (str scaffold)))
 
 (defn- render-review-card
   "Creates a DOM element for a single due review card.
-   Shows the content title, review shape, and due status."
+   Shows the content title, scaffold level, and due status.
+   Links to the review session page."
   [review content-map]
   (let [content-id (:content-id review)
         content    (get content-map content-id)
         title      (or (:title content) "Unknown content")
-        card       (create-el "div")]
+        card       (create-el "a")]
+    (set! (.-href card) (str "/review/" (:id review)))
     (.. card -classList (add "review-card"))
     (append-children!
       card
@@ -117,7 +120,7 @@
         (.. meta -classList (add "review-meta"))
         (append-children!
           meta
-          (create-el "span" (shape-label (:shape review)) "review-shape")
+          (create-el "span" (scaffold-label (:scaffold review)) "review-shape")
           (create-el "span" (format-due-at (:due-at review)) "review-due"))))
     card))
 

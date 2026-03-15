@@ -79,7 +79,7 @@
 (comment
   (save-review! "test"
                 {:id "rev-1" :content-id "c-1" :status :pending
-                 :shape :headings-only :interval 0 :ease-factor 2.5
+                 :scaffold :none :interval 0 :ease-factor 2.5
                  :repetitions 0 :quality nil
                  :due-at 1710000000000 :created-at 1710000000000
                  :reviewed-at nil})
