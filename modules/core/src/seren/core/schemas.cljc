@@ -54,7 +54,70 @@
    [:created-at common/Timestamp]])
 
 ;; --- Review schemas (Phase 2) ---
-;; Reviews are scheduled using SM-2 spaced repetition intervals.
+;; Reviews are scheduled using the SM-2 spaced repetition algorithm.
+;; Each review tracks a content item's position in the learning curve:
+;; interval (days until next review), ease-factor (difficulty multiplier),
+;; and repetition count. Quality (0-5) is derived from similarity scoring
+;; in Phase 4 — until then, the user self-reports.
+;;
+;; See: https://en.wikipedia.org/wiki/SuperMemo#SM-2_algorithm
+;; See plan.md § "SM-2 Scheduling (Core, Pure)"
+
+(def ReviewStatus
+  "A review is either :pending (not yet started), :due (ready for recall),
+   or :completed (finished, scored). Status drives dashboard filtering."
+  [:enum :pending :due :completed])
+
+(def ReviewShape
+  "The presentation shape for a review session. Progressive difficulty:
+   :headings-only → :summary → :keyword-blanks → :free-recall.
+   See plan.md § 'Review Shapes (Content Views)' for examples."
+  [:enum :headings-only :summary :keyword-blanks :free-recall])
+
+(def Quality
+  "SM-2 quality score (0-5). Maps to recall accuracy:
+     5 = perfect recall, 0 = total blackout.
+   In Phase 4, derived automatically from similarity; until then, self-reported.
+   See plan.md § 'SM-2 Scheduling' quality mapping table."
+  [:int {:min 0 :max 5}])
+
+(def EaseFactor
+  "SM-2 ease factor — a float ≥ 1.3 that scales the review interval.
+   Starts at 2.5 and adjusts after each recall attempt.
+   Lower = harder content (shorter intervals), higher = easier (longer intervals).
+   See: https://en.wikipedia.org/wiki/SuperMemo#Algorithm_SM-2"
+  [:double {:min 1.3}])
+
+(def Review
+  "A scheduled review for a content item. Tracks SM-2 state and
+   determines when the user should next practice recalling this content."
+  [:map
+   [:id common/Id]
+   [:content-id common/Id]
+   [:status ReviewStatus]
+   [:shape ReviewShape]
+   [:interval :int]                ;; days until next review (0 = new)
+   [:ease-factor EaseFactor]
+   [:repetitions :int]             ;; number of successful consecutive recalls
+   [:quality {:optional true} [:maybe Quality]]  ;; last quality score (nil if unreviewed)
+   [:due-at common/Timestamp]      ;; when this review becomes due
+   [:created-at common/Timestamp]
+   [:reviewed-at {:optional true} [:maybe common/Timestamp]]])
+
+(def SchedulerInput
+  "Input to the SM-2 next-review function: the current review state + quality."
+  [:map
+   [:interval :int]
+   [:ease-factor EaseFactor]
+   [:repetitions :int]
+   [:quality Quality]])
+
+(def SchedulerOutput
+  "Output of the SM-2 next-review function: the updated scheduling state."
+  [:map
+   [:interval :int]
+   [:ease-factor EaseFactor]
+   [:repetitions :int]])
 
 ;; --- Score schemas (Phase 4) ---
 ;; Scores record how well the user recalled content during a review session.

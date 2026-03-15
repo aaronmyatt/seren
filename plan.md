@@ -252,14 +252,16 @@ scheduled task checks `reviews.due_at` and triggers pushes for due items.
 - [x] **Tests**: TDD core content functions (14 test cases, schema validation)
 - [x] **Tooling**: clj-kondo linting (`bb lint`) + pre-commit hook
 
-### Phase 2 — Spaced Repetition Scheduler
+### Phase 2 — Spaced Repetition Scheduler ✅
 > *"As a learner I want to be reminded of content I consumed recently"*
 
-- [ ] `core/scheduler.cljc` — SM-2 `next-review` pure function
-- [ ] `adapter/review_store.clj/.cljs` — review state persistence
-- [ ] `app/main.cljc` — wire ingest → initial review scheduling
-- [ ] Dashboard page showing upcoming reviews
-- [ ] **Tests**: property-based tests for interval monotonicity
+- [x] `core/scheduler.cljc` — SM-2 `next-review`, `similarity->quality`, `initial-review`, `apply-review`
+- [x] `core/schemas.cljc` — Review, SchedulerInput/Output, Quality, EaseFactor, ReviewStatus, ReviewShape
+- [x] `adapter/review_store.clj/.cljs` — file-based (JVM) + atom-based (CLJS) review persistence
+- [x] `app/main.cljc` — wire ingest → initial review scheduling, `complete-review!`, `list-due-reviews`
+- [x] `app/server.clj` — `GET /api/reviews`, `GET /api/reviews/due`, `POST /api/reviews/:id/complete`
+- [x] Dashboard page showing upcoming reviews with shape badges and due status
+- [x] **Tests**: 10 test cases — SM-2 interval calculations, ease factor floor, schema conformance, interval monotonicity, similarity→quality boundaries
 
 ### Phase 3 — Review Shapes
 > *"As a learner I want to see content in various shapes"*

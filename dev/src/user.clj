@@ -4,8 +4,10 @@
    Start a REPL with: bb nrepl
    Then this namespace is loaded automatically."
   (:require [seren.core.content :as content]
+            [seren.core.scheduler :as sched]
             [seren.core.schemas :as core-schemas]
-            [seren.adapter.content-store :as store]
+            [seren.adapter.content-store :as content-store]
+            [seren.adapter.review-store :as review-store]
             [seren.app.main :as app]
             [seren.app.server :as server]
             [seren.schemas.common :as common]
@@ -52,10 +54,24 @@
   (content/process-content {:text "# Clojure\n\nA functional language.\n\n## Data\n\nImmutable."
                             :title "Clojure Guide"})
 
-  ;; Ingest via the App layer
-  (app/ingest-content! {:store-dir ".seren-data/content"
+  ;; Ingest via the App layer (Phase 2: now also creates a review)
+  (app/ingest-content! {:store-dir  ".seren-data/content"
+                        :review-dir ".seren-data/reviews"
                         :text "# Test\n\nFirst paragraph.\n\nSecond paragraph."
                         :title "Test Article"})
 
   ;; List all content
-  (app/list-all-content {:store-dir ".seren-data/content"}))
+  (app/list-all-content {:store-dir  ".seren-data/content"
+                         :review-dir ".seren-data/reviews"})
+
+  ;; Phase 2: list due reviews
+  (app/list-due-reviews {:store-dir  ".seren-data/content"
+                         :review-dir ".seren-data/reviews"})
+
+  ;; Phase 2: SM-2 scheduling
+  (sched/next-review {:interval 0 :ease-factor 2.5 :repetitions 0 :quality 4})
+  ;; => {:interval 1, :ease-factor 2.5, :repetitions 1}
+
+  (sched/similarity->quality 0.85)
+  ;; => 4
+  )

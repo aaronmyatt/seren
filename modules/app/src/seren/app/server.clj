@@ -3,11 +3,14 @@
    Serves Hiccup-rendered HTML pages, an EDN API, and static assets.
 
    Routes:
-     GET  /              → redirect to /library
-     GET  /library       → content library (ingest + browse)
-     GET  /dashboard     → dashboard (upcoming reviews, scores)
-     POST /api/ingest    → ingest content (EDN body)
-     GET  /api/content   → list all content (EDN response)
+     GET  /                         → redirect to /library
+     GET  /library                  → content library (ingest + browse)
+     GET  /dashboard                → dashboard (upcoming reviews, scores)
+     POST /api/ingest               → ingest content (EDN body)
+     GET  /api/content              → list all content (EDN response)
+     GET  /api/reviews              → list all reviews (EDN response)
+     GET  /api/reviews/due          → list reviews due now (EDN response)
+     POST /api/reviews/:id/complete → complete a review with quality score
 
    Start in REPL:  (seren.app.server/start! {:port 3000})
    Stop:           (seren.app.server/stop!)
@@ -26,12 +29,14 @@
             [seren.app.pages.dashboard :as dashboard-page]))
 
 ;; --- App state ---
-;; The store directory is configurable; defaults to .seren-data/ in the project root.
+;; Store directories are configurable; default to .seren-data/ in the project root.
 
 (def ^:private default-store-dir ".seren-data/content")
+(def ^:private default-review-dir ".seren-data/reviews")
 
 (defn- app-config []
-  {:store-dir default-store-dir})
+  {:store-dir  default-store-dir
+   :review-dir default-review-dir})
 
 ;; --- EDN API helpers ---
 ;; The API speaks EDN — natural for ClojureScript frontends.
@@ -60,7 +65,7 @@
 (defn- ingest-handler
   "POST /api/ingest — ingests content from EDN body.
    Expects: {:text \"...\" :title \"...\" :url \"...\"}
-   Returns: {:success true :content {...}} or {:success false :reason \"...\"}"
+   Returns: {:success true :content {...} :review {...}} or {:success false :reason \"...\"}"
   [request]
   (if-let [body (read-edn-body request)]
     (let [result (app/ingest-content!
@@ -76,16 +81,49 @@
   (let [contents (app/list-all-content (app-config))]
     (edn-response 200 {:content contents})))
 
+(defn- list-reviews-handler
+  "GET /api/reviews — returns all reviews as EDN, sorted by due-at."
+  [_request]
+  (let [reviews (app/list-all-reviews (app-config))]
+    (edn-response 200 {:reviews reviews})))
+
+(defn- list-due-reviews-handler
+  "GET /api/reviews/due — returns reviews due for practice right now."
+  [_request]
+  (let [reviews (app/list-due-reviews (app-config))]
+    (edn-response 200 {:reviews reviews})))
+
+(defn- complete-review-handler
+  "POST /api/reviews/:id/complete — completes a review with a quality score.
+   Expects EDN body: {:quality 4}
+   Returns: {:success true :completed-review {...} :next-review {...}}
+
+   See plan.md § 'SM-2 Scheduling' for quality values (0-5)."
+  [request]
+  (let [review-id (get-in request [:path-params :id])]
+    (if-let [body (read-edn-body request)]
+      (let [quality (:quality body)]
+        (if (and (integer? quality) (<= 0 quality 5))
+          (let [result (app/complete-review! (app-config) review-id quality)]
+            (if (:success result)
+              (edn-response 200 result)
+              (edn-response 404 result)))
+          (edn-response 400 {:success false :reason "Quality must be an integer 0-5"})))
+      (edn-response 400 {:success false :reason "Could not parse request body as EDN"}))))
+
 ;; --- Routes ---
 
 (def routes
   "Reitit route data. Each route maps to a Ring handler.
    See: https://cljdoc.org/d/metosin/reitit/CURRENT/doc/ring/ring-router"
-  [["/"           {:get {:handler (fn [_] (response/redirect "/library"))}}]
-   ["/library"    {:get {:handler library-page/handler}}]
-   ["/dashboard"  {:get {:handler dashboard-page/handler}}]
-   ["/api/ingest" {:post {:handler ingest-handler}}]
-   ["/api/content" {:get {:handler list-content-handler}}]])
+  [["/"                          {:get  {:handler (fn [_] (response/redirect "/library"))}}]
+   ["/library"                   {:get  {:handler library-page/handler}}]
+   ["/dashboard"                 {:get  {:handler dashboard-page/handler}}]
+   ["/api/ingest"                {:post {:handler ingest-handler}}]
+   ["/api/content"               {:get  {:handler list-content-handler}}]
+   ["/api/reviews"               {:get  {:handler list-reviews-handler}}]
+   ["/api/reviews/due"           {:get  {:handler list-due-reviews-handler}}]
+   ["/api/reviews/:id/complete"  {:post {:handler complete-review-handler}}]])
 
 ;; --- Handler ---
 
@@ -141,7 +179,10 @@
   ;; Test API directly
   ((app-handler) {:request-method :get :uri "/api/content"})
 
-  ;; Test ingest
+  ;; Test reviews API
+  ((app-handler) {:request-method :get :uri "/api/reviews/due"})
+
+  ;; Test ingest (now creates review too)
   ((app-handler) {:request-method :post
                   :uri "/api/ingest"
                   :body (java.io.StringReader.
