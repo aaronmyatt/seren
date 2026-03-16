@@ -116,6 +116,11 @@ header p {
   overflow: hidden;
 }
 
+/* Phase 4a: Review button on content cards */
+.content-actions {
+  margin-block: var(--size-2);
+}
+
 .content-meta {
   display: flex;
   flex-wrap: wrap;
@@ -193,7 +198,6 @@ header p {
   border: var(--border-size-1) solid var(--gray-3);
   border-radius: var(--radius-2);
   background: var(--surface-2);
-  text-decoration: none;
   color: inherit;
   transition: border-color 0.15s ease;
 }
@@ -206,6 +210,11 @@ header p {
   font-size: var(--font-size-1);
   margin-block-end: var(--size-2);
   color: var(--gray-9);
+}
+
+/* Phase 4a: Review Now button in review cards */
+.review-card sl-button {
+  margin-block-start: var(--size-2);
 }
 
 .review-meta {

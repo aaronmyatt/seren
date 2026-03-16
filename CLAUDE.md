@@ -39,6 +39,7 @@ Core (pure, .cljc)  →  Adapter (side effects, .clj/.cljs)  →  App (wiring, .
    - Refactor only if needed
    - Run tests after each step (`bb test:core`, `bb test:cljs`, etc.)
 4. **Proactive suggestions** — When you notice opportunities to improve code quality, architecture, developer experience, or project conventions, suggest them. Flag technical debt, missing tests, inconsistent patterns, or potential simplifications. Suggestions should be clearly marked as optional and not acted on without approval.
+5. **Human-makes-the-edit** — For small, localized changes (type hints, renaming, fixing a single line, adding an import, tweaking a value), guide the human to make the edit themselves rather than applying it with agent tools. Describe *what* to change and *where*, but let them do it. This builds muscle memory, keeps the human engaged with their own codebase, and saves tokens. Reserve agent edits for larger, multi-file, or repetitive changes where manual editing would be tedious or error-prone.
 
 ## Cross-Platform Rules
 

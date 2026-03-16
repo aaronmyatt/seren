@@ -104,24 +104,29 @@
 
 (defn- render-review-card
   "Creates a DOM element for a single due review card.
-   Shows the content title, scaffold level, and due status.
-   Links to the review session page."
+   Shows the content title, scaffold level, due status, and a Review Now button.
+   Phase 4a: the button navigates directly to /review/:id."
   [review content-map]
   (let [content-id (:content-id review)
         content    (get content-map content-id)
         title      (or (:title content) "Unknown content")
-        card       (create-el "a")]
-    (set! (.-href card) (str "/review/" (:id review)))
+        card       (create-el "div")]
     (.. card -classList (add "review-card"))
-    (append-children!
-      card
-      (create-el "h4" title)
-      (let [meta (create-el "div")]
-        (.. meta -classList (add "review-meta"))
-        (append-children!
-          meta
-          (create-el "span" (scaffold-label (:scaffold review)) "review-shape")
-          (create-el "span" (format-due-at (:due-at review)) "review-due"))))
+    (let [review-btn (doto (create-el "sl-button" "Review Now")
+                       (.setAttribute "variant" "primary")
+                       (.setAttribute "size" "small"))]
+      (.addEventListener review-btn "click"
+        (fn [_e] (set! js/window.location (str "/review/" (:id review)))))
+      (append-children!
+        card
+        (create-el "h4" title)
+        (let [meta (create-el "div")]
+          (.. meta -classList (add "review-meta"))
+          (append-children!
+            meta
+            (create-el "span" (scaffold-label (:scaffold review)) "review-shape")
+            (create-el "span" (format-due-at (:due-at review)) "review-due")))
+        review-btn))
     card))
 
 (defn- render-due-reviews!

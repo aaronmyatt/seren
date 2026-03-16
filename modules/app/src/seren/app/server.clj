@@ -154,6 +154,27 @@
           (edn-response 400 {:success false :reason "Transcript must be a string"})))
       (edn-response 400 {:success false :reason "Could not parse request body as EDN"}))))
 
+(defn- start-review-handler
+  "POST /api/reviews/start — creates (or finds) an ad-hoc review for a content item.
+   Expects EDN body: {:content-id \"...\"}
+   Returns: {:success true :review {...} :created? bool}
+
+   If an active (non-completed) review already exists for this content, returns
+   it rather than creating a duplicate. The response includes :created? so the
+   client knows whether to show 'resuming existing review' feedback.
+
+   Phase 4a: enables manual review without waiting for the spaced repetition schedule."
+  [request]
+  (if-let [body (read-edn-body request)]
+    (let [content-id (:content-id body)]
+      (if (and content-id (string? content-id))
+        (let [result (app/start-review! (app-config) content-id)]
+          (if (:success result)
+            (edn-response (if (:created? result) 201 200) result)
+            (edn-response 404 result)))
+        (edn-response 400 {:success false :reason "content-id must be a string"})))
+    (edn-response 400 {:success false :reason "Could not parse request body as EDN"})))
+
 (defn- transcribe-handler
   "POST /api/transcribe — transcribes audio via whisper.cpp.
    Expects raw audio bytes in the request body (Content-Type: audio/webm or audio/wav).
@@ -195,6 +216,7 @@
    ["/api/content"                {:get  {:handler list-content-handler}}]
    ["/api/reviews"                {:get  {:handler list-reviews-handler}}]
    ["/api/reviews/due"            {:get  {:handler list-due-reviews-handler}}]
+   ["/api/reviews/start"          {:post {:handler start-review-handler}}]
    ["/api/reviews/:id/session"    {:get  {:handler review-session-handler}}]
    ["/api/transcribe"              {:post {:handler transcribe-handler}}]
    ["/api/reviews/:id/score"      {:post {:handler score-review-handler}}]

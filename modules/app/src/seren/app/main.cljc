@@ -210,6 +210,47 @@
         [:map [:success :boolean]
               [:reason :string]]]])
 
+;; --- Ad-hoc review (Phase 4a) ---
+
+(defn start-review!
+  "Starts an ad-hoc review for a specific content item.
+
+   If an existing pending/due review for this content exists, returns it
+   (avoids creating duplicates). Otherwise creates a new review with
+   default SM-2 starting state, due immediately.
+
+   Returns {:success true :review {...} :created? bool}
+   or {:success false :reason ...}.
+
+   See plan.md § 'Phase 4a — Manual Review'"
+  [config content-id]
+  (if-let [_content (content-store/load-content (:store-dir config) content-id)]
+    (let [existing (review-store/find-reviews-by-content
+                     (:review-dir config) content-id)
+          ;; Find an active (non-completed) review we can reuse
+          active   (first (filter #(not= :completed (:status %)) existing))]
+      (if active
+        {:success  true
+         :review   active
+         :created? false}
+        ;; No active review — create a fresh one, due now
+        (let [review (sched/initial-review content-id (now-ms))]
+          (review-store/save-review! (:review-dir config) review)
+          {:success  true
+           :review   review
+           :created? true})))
+    {:success false
+     :reason  (str "Content not found: " content-id)}))
+
+(m/=> start-review!
+      [:=> [:cat AppConfig common/Id]
+       [:or
+        [:map [:success :boolean]
+              [:review schemas/Review]
+              [:created? :boolean]]
+        [:map [:success :boolean]
+              [:reason :string]]]])
+
 ;; --- Score and complete (Phase 4) ---
 
 (defn score-and-complete-review!
@@ -286,4 +327,9 @@
   (list-due-reviews config)
 
   ;; Complete a review with quality 4
-  (complete-review! config "review-id-here" 4))
+  (complete-review! config "review-id-here" 4)
+
+  ;; Phase 4a: start an ad-hoc review for any content
+  (start-review! config "content-id-here")
+  ;; => {:success true, :review {...}, :created? true})
+)

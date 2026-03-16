@@ -46,6 +46,22 @@
                            (set! -textContent text)
                            (.. -classList (add class-name)))))
 
+(defn- start-review-for-content!
+  "POSTs to /api/reviews/start to create/find an ad-hoc review, then navigates.
+   Phase 4a: enables manual review without waiting for the spaced repetition schedule."
+  [content-id ^js/HTMLButtonElement btn]
+  (set! (.-loading btn) true)
+  (-> (post-edn "/api/reviews/start" {:content-id content-id})
+      (.then (fn [result]
+               (set! (.-loading btn) false)
+               (if (:success result)
+                 (let [review-id (get-in result [:review :id])]
+                   (set! js/window.location (str "/review/" review-id)))
+                 (js/alert (str "Could not start review: " (:reason result))))))
+      (.catch (fn [err]
+                (set! (.-loading btn) false)
+                (js/console.error "[library] Start review failed:" err)))))
+
 (defn- render-content-card
   "Creates a DOM element for a single content card.
    Uses DOM construction rather than innerHTML for safety."
@@ -55,14 +71,26 @@
                   (.. -classList (add "content-card")))
         title   (create-el "h3" (:title content))
         summary (create-el "p" (:summary content) "content-summary")
+        ;; Phase 4a: "Review" button to start an ad-hoc review
+        actions (doto (create-el "div")
+                  (.. -classList (add "content-actions")))
+        review-btn (doto (create-el "sl-button" "Review")
+                     (.setAttribute "variant" "primary")
+                     (.setAttribute "size" "small")
+                     (.setAttribute "outline" ""))
         meta    (doto (create-el "div")
                   (.. -classList (add "content-meta")))
         chunks  (doto (create-el "sl-badge" (str (count (:chunks content)) " chunks"))
                   (.setAttribute "variant" "neutral"))
         date    (create-el "span" (format-date (:created-at content)) "content-date")]
+    ;; Wire up review button
+    (.addEventListener review-btn "click"
+      (fn [_e] (start-review-for-content! (:id content) review-btn)))
     ;; Assemble the card
     (.appendChild wrapper title)
     (.appendChild wrapper summary)
+    (.appendChild actions review-btn)
+    (.appendChild wrapper actions)
     (.appendChild meta chunks)
     (doseq [tag (take 4 (:tags content))]
       (.appendChild meta (doto (create-el "sl-badge" tag)
