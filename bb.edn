@@ -43,22 +43,45 @@
 
   ;; --- Combined Dev ---
   dev:stop
-  {:doc  "Stop any leftover dev processes (PocketBase, shadow-cljs)."
+  {:doc  "Stop any leftover dev processes (PocketBase, whisper.cpp, shadow-cljs)."
    :task (do
            (try (shell {:continue true} "npx" "shadow-cljs" "stop") (catch Exception _))
            (try (shell {:continue true} "pkill" "-f" ".pocketbase/pocketbase serve") (catch Exception _))
+           (try (shell {:continue true} "pkill" "-f" ".whisper/whisper-server") (catch Exception _))
            (Thread/sleep 500)
            (println "Dev processes stopped."))}
 
   dev
-  {:doc  "Start PocketBase + shadow-cljs + Ring server. Ctrl-C stops all."
+  {:doc  "Start PocketBase + whisper.cpp + shadow-cljs + Ring server. Ctrl-C stops all."
    :depends [dev:stop]
-   :task (let [pb   (process [".pocketbase/pocketbase" "serve"
+   :task (let [;; Auto-detect best whisper model (medium.en preferred over base.en)
+               model (cond
+                       (fs/exists? ".whisper/models/ggml-medium.en.bin")
+                       ".whisper/models/ggml-medium.en.bin"
+                       (fs/exists? ".whisper/models/ggml-base.en.bin")
+                       ".whisper/models/ggml-base.en.bin"
+                       :else nil)
+
+               pb   (process [".pocketbase/pocketbase" "serve"
                               "--dir=.pocketbase/pb_data"
                               "--http=127.0.0.1:8090"]
                              {:inherit true})
                _    (do (println "▸ PocketBase starting on :8090...")
                         (Thread/sleep 1000))
+
+               ;; whisper.cpp local speech-to-text server
+               ;; See: https://github.com/ggerganov/whisper.cpp/tree/master/examples/server
+               wsp  (when model
+                      (println (str "▸ whisper.cpp starting on :8178 (model: " (fs/file-name model) ")..."))
+                      (process [".whisper/whisper-server"
+                                "--model" model
+                                "--host" "127.0.0.1"
+                                "--port" "8178"]
+                               {:inherit true}))
+               _    (when-not model
+                      (println "⚠ No whisper model found — voice input disabled. Run: bb whisper:link or bb whisper:install"))
+               _    (when wsp (Thread/sleep 2000))
+
                cljs (process ["npx" "shadow-cljs" "watch" "browser"]
                              {:inherit true})
                _    (do (println "▸ shadow-cljs starting...")
@@ -70,9 +93,11 @@
              (finally
                (println "\n▸ Shutting down all processes...")
                (destroy-tree cljs)
+               (when wsp (destroy-tree wsp))
                (destroy-tree pb)
                (println "▸ Done."))))
-   :requires ([babashka.process :refer [process destroy-tree]])}
+   :requires ([babashka.process :refer [process destroy-tree]]
+              [babashka.fs :as fs])}
 
   ;; --- ClojureScript ---
   cljs:watch
@@ -101,6 +126,65 @@
   pb:stop
   {:doc  "Stop PocketBase server"
    :task (shell "pkill" "-f" ".pocketbase/pocketbase serve")}
+
+  ;; --- Whisper.cpp (local speech-to-text) ---
+  ;; Runs alongside the JVM backend, just like PocketBase.
+  ;; See: https://github.com/ggerganov/whisper.cpp
+
+  whisper:install
+  {:doc  "Install whisper.cpp server via Homebrew + download base.en model if needed"
+   :task (shell "bb" "--file" "scripts/whisper.bb")}
+
+  whisper:link
+  {:doc  "Symlink models from voice-pwa (avoids re-downloading ~1.5GB medium.en model)"
+   :requires ([babashka.fs :as fs])
+   :task (let [;; voice-pwa sits alongside seren in the parent directory
+               ;; Adjust this path if your layout differs.
+               voice-pwa-models (str (fs/parent (fs/absolutize ".")) "/voice-pwa/models")]
+           (if (fs/exists? voice-pwa-models)
+             (do
+               (fs/create-dirs ".whisper")
+               ;; Remove existing models dir if it's a real directory (not a symlink)
+               (when (and (fs/exists? ".whisper/models")
+                          (not (fs/sym-link? ".whisper/models")))
+                 (println "Removing existing .whisper/models/ (will symlink instead)")
+                 (fs/delete-tree ".whisper/models"))
+               (when-not (fs/exists? ".whisper/models")
+                 (fs/create-sym-link ".whisper/models" voice-pwa-models)
+                 (println (str "Linked .whisper/models → " voice-pwa-models)))
+               (println "Available models:")
+               (doseq [f (fs/glob ".whisper/models" "ggml-*.bin")]
+                 (println (str "  " (fs/file-name f)
+                               " (" (format "%.0f MB" (/ (fs/size f) 1048576.0)) ")"))))
+             (do
+               (println (str "voice-pwa models not found at: " voice-pwa-models))
+               (println "Expected layout: <parent>/voice-pwa/models/ggml-*.bin")
+               (println "Run `bb whisper:install` to download base.en instead."))))}
+
+  whisper:start
+  {:doc  "Start whisper.cpp server (http://127.0.0.1:8178). Uses best available model."
+   :requires ([babashka.fs :as fs])
+   :task (let [;; Prefer medium.en for accuracy, fall back to base.en
+               ;; See: https://github.com/ggerganov/whisper.cpp/tree/master/models
+               model (cond
+                       (fs/exists? ".whisper/models/ggml-medium.en.bin")
+                       ".whisper/models/ggml-medium.en.bin"
+
+                       (fs/exists? ".whisper/models/ggml-base.en.bin")
+                       ".whisper/models/ggml-base.en.bin"
+
+                       :else
+                       (do (println "No whisper model found. Run: bb whisper:install")
+                           (System/exit 1)))]
+           (println (str "▸ Using model: " model))
+           (shell ".whisper/whisper-server"
+                  "--model" model
+                  "--host" "127.0.0.1"
+                  "--port" "8178"))}
+
+  whisper:stop
+  {:doc  "Stop whisper.cpp server"
+   :task (shell "pkill" "-f" ".whisper/whisper-server")}
 
   ;; --- Linting ---
   ;; clj-kondo catches unbalanced parens, arity errors, unused vars, and more
@@ -138,10 +222,11 @@
    :task (shell "rm -rf target .cpcache out public/js modules/core/.cpcache modules/adapter/.cpcache modules/app/.cpcache")}
 
   deps
-  {:doc  "Download all dependencies (JVM + npm + PocketBase)"
+  {:doc  "Download all dependencies (JVM + npm + PocketBase + whisper.cpp)"
    :task (do (shell "clojure -P -M:dev:nrepl:test:cljs")
              (shell "npm install")
-             (shell "bb" "pb:install"))}
+             (shell "bb" "pb:install")
+             (shell "bb" "whisper:install"))}
 
   ;; --- Template ---
   rename

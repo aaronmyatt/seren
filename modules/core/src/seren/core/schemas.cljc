@@ -126,3 +126,15 @@
 
 ;; --- Score schemas (Phase 4) ---
 ;; Scores record how well the user recalled content during a review session.
+;; The scoring pipeline compares the user's recall transcript (voice or typed)
+;; against the source material to derive similarity and quality automatically.
+;; See plan.md § 'Voice Free-Recall Flow'
+
+(def RecallScore
+  "Result of scoring a recall attempt. Produced by core/recall, consumed by
+   the App layer to feed into SM-2 scheduling.
+   See plan.md § 'SM-2 Scheduling' for quality mapping table."
+  [:map
+   [:similarity :double]
+   [:quality Quality]
+   [:missed-chunks [:vector Chunk]]])

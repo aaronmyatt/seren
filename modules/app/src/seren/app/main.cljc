@@ -10,6 +10,7 @@
    ingest → schedule → review → score"
   (:require [malli.core :as m]
             [seren.core.content :as content]
+            [seren.core.recall :as recall]
             [seren.core.review :as review]
             [seren.core.scheduler :as sched]
             [seren.core.schemas :as schemas]
@@ -204,6 +205,66 @@
       [:=> [:cat AppConfig common/Id schemas/Quality]
        [:or
         [:map [:success :boolean]
+              [:completed-review schemas/Review]
+              [:next-review schemas/Review]]
+        [:map [:success :boolean]
+              [:reason :string]]]])
+
+;; --- Score and complete (Phase 4) ---
+
+(defn score-and-complete-review!
+  "Scores a recall transcript against source content, derives SM-2 quality
+   automatically, and completes the review. This replaces the manual quality
+   input from Phase 3.
+
+   Pipeline:
+   1. Load review + content
+   2. Score transcript via core/recall (similarity + missed chunks)
+   3. Map similarity → quality via scheduler/similarity->quality
+   4. Complete the review with the derived quality (same as complete-review!)
+   5. Return scoring details alongside the scheduling result
+
+   Returns {:success true :similarity ... :quality ... :missed-chunks ...
+            :completed-review ... :next-review ...}
+   or {:success false :reason ...}
+
+   See plan.md § 'Voice Free-Recall Flow'"
+  [config review-id transcript]
+  (if-let [rev (review-store/load-review (:review-dir config) review-id)]
+    (if-let [cont (content-store/load-content (:store-dir config) (:content-id rev))]
+      (let [;; Score the recall attempt (pure)
+            score       (recall/score-recall transcript cont)
+            quality     (:quality score)
+            ;; Complete the review with derived quality (same logic as complete-review!)
+            ts          (now-ms)
+            completed   (sched/apply-review rev quality ts)
+            _           (review-store/save-review! (:review-dir config) completed)
+            next-review (-> (sched/initial-review (:content-id rev) (:due-at completed))
+                            (assoc :interval    (:interval completed)
+                                   :ease-factor (:ease-factor completed)
+                                   :repetitions (:repetitions completed)
+                                   :scaffold    (review/select-scaffold-level
+                                                  {:quality  quality
+                                                   :interval (:interval completed)})))
+            _           (review-store/save-review! (:review-dir config) next-review)]
+        {:success          true
+         :similarity       (:similarity score)
+         :quality          quality
+         :missed-chunks    (:missed-chunks score)
+         :completed-review completed
+         :next-review      next-review})
+      {:success false
+       :reason  (str "Content not found for review: " (:content-id rev))})
+    {:success false
+     :reason  (str "Review not found: " review-id)}))
+
+(m/=> score-and-complete-review!
+      [:=> [:cat AppConfig common/Id :string]
+       [:or
+        [:map [:success :boolean]
+              [:similarity :double]
+              [:quality schemas/Quality]
+              [:missed-chunks [:vector schemas/Chunk]]
               [:completed-review schemas/Review]
               [:next-review schemas/Review]]
         [:map [:success :boolean]

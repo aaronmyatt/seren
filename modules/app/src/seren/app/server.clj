@@ -12,7 +12,9 @@
      GET  /api/reviews               → list all reviews (EDN response)
      GET  /api/reviews/due           → list reviews due now (EDN response)
      GET  /api/reviews/:id/session   → review session data (review + content + scaffold)
-     POST /api/reviews/:id/complete  → complete a review with quality score
+     POST /api/transcribe             → transcribe audio via whisper.cpp (raw audio body)
+     POST /api/reviews/:id/score     → score transcript + complete review (Phase 4)
+     POST /api/reviews/:id/complete  → complete a review with manual quality (fallback)
 
    Start in REPL:  (seren.app.server/start! {:port 3000})
    Stop:           (seren.app.server/stop!)
@@ -26,6 +28,9 @@
             [ring.middleware.not-modified :refer [wrap-not-modified]]
             [ring.util.response :as response]
             [clojure.edn :as edn]
+            [clojure.java.io :as io]
+            [clojure.string :as str]
+            [seren.adapter.whisper :as whisper]
             [seren.app.main :as app]
             [seren.app.pages.library :as library-page]
             [seren.app.pages.dashboard :as dashboard-page]
@@ -127,6 +132,56 @@
           (edn-response 400 {:success false :reason "Quality must be an integer 0-5"})))
       (edn-response 400 {:success false :reason "Could not parse request body as EDN"}))))
 
+(defn- score-review-handler
+  "POST /api/reviews/:id/score — scores a recall transcript and completes the review.
+   Expects EDN body: {:transcript \"what the user recalled...\"}
+   Returns: {:success true :similarity 0.75 :quality 4 :missed-chunks [...] :next-review {...}}
+
+   This is the Phase 4 replacement for the manual quality input in complete-review-handler.
+   The server scores the transcript, derives quality via similarity->quality, and
+   applies the SM-2 algorithm in one step.
+
+   See plan.md § 'Voice Free-Recall Flow'"
+  [request]
+  (let [review-id (get-in request [:path-params :id])]
+    (if-let [body (read-edn-body request)]
+      (let [transcript (:transcript body)]
+        (if (string? transcript)
+          (let [result (app/score-and-complete-review! (app-config) review-id transcript)]
+            (if (:success result)
+              (edn-response 200 result)
+              (edn-response 404 result)))
+          (edn-response 400 {:success false :reason "Transcript must be a string"})))
+      (edn-response 400 {:success false :reason "Could not parse request body as EDN"}))))
+
+(defn- transcribe-handler
+  "POST /api/transcribe — transcribes audio via whisper.cpp.
+   Expects raw audio bytes in the request body (Content-Type: audio/webm or audio/wav).
+   Returns EDN: {:success true :text \"transcribed text\"}
+   or {:success false :reason \"...\"}
+
+   The browser sends the recorded audio blob directly. The JVM forwards it
+   to the local whisper.cpp server for transcription.
+
+   See: https://github.com/ggerganov/whisper.cpp/tree/master/examples/server"
+  [request]
+  (try
+    (let [content-type (or (get-in request [:headers "content-type"]) "audio/webm")
+          audio-bytes  (with-open [in  (:body request)
+                                   out (java.io.ByteArrayOutputStream.)]
+                         (io/copy in out)
+                         (.toByteArray out))
+          result       (whisper/transcribe audio-bytes
+                         {:content-type content-type
+                          :filename     (if (str/includes? content-type "wav")
+                                          "audio.wav" "audio.webm")})]
+      (if (:success result)
+        (edn-response 200 result)
+        (edn-response 502 result)))
+    (catch Exception e
+      (edn-response 500 {:success false
+                         :reason  (str "Transcription failed: " (.getMessage e))}))))
+
 ;; --- Routes ---
 
 (def routes
@@ -141,6 +196,8 @@
    ["/api/reviews"                {:get  {:handler list-reviews-handler}}]
    ["/api/reviews/due"            {:get  {:handler list-due-reviews-handler}}]
    ["/api/reviews/:id/session"    {:get  {:handler review-session-handler}}]
+   ["/api/transcribe"              {:post {:handler transcribe-handler}}]
+   ["/api/reviews/:id/score"      {:post {:handler score-review-handler}}]
    ["/api/reviews/:id/complete"   {:post {:handler complete-review-handler}}]])
 
 ;; --- Handler ---

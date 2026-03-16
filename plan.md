@@ -106,7 +106,8 @@ modules/
 │   ├── content_store.clj/.cljs    ← CRUD for ingested content (PocketBase)
 │   ├── review_store.clj/.cljs     ← Review history persistence
 │   ├── notifier.clj               ← PWA push notifications (web-push, JVM only)
-│   └── speech.cljs                ← Web Speech API wrapper (browser only)
+│   ├── audio.cljs                 ← MediaRecorder wrapper for voice capture (browser only)
+│   └── whisper.clj                ← whisper.cpp HTTP client for local transcription (JVM only)
 │
 └── app/src/seren/app/             ← Wiring
     ├── main.cljc                 ← Orchestration (ingest → schedule → review → score)
@@ -116,7 +117,7 @@ modules/
     │   ├── review.clj            ← Review session page
     │   └── dashboard.clj         ← Score history, upcoming reviews
     └── islands/                  ← CLJS interactivity
-        ├── voice.cljs            ← Microphone capture + SpeechRecognition
+        ├── review.cljs           ← Review session: voice recording, transcription, scoring
         ├── review.cljs           ← Interactive review flow
         └── library.cljs          ← Content browsing + manual link entry
 ```
@@ -172,25 +173,31 @@ quality from the **similarity score** between transcript and source:
 ## Voice Free-Recall Flow
 
 ```
-  ┌─────────┐   tap    ┌────────────┐  audio  ┌─────────────────┐
-  │  PWA    │ ──────►  │  Record    │ ──────► │ SpeechRecognition│
-  │  Review │  "start" │  (island)  │ stream  │ (Web Speech API) │
-  │  Page   │          └────────────┘         └────────┬────────┘
-  └─────────┘                                          │
-                                                 transcript
-                                                       │
-                                                       ▼
-  ┌──────────────────┐  POST /api/score   ┌─────────────────────┐
-  │  Score Display   │ ◄──────────────── │   JVM Backend        │
-  │  • similarity %  │                    │   core/recall.cljc   │
-  │  • missed chunks │                    │   (pure scoring)     │
-  │  • next review   │                    └─────────────────────┘
+  ┌─────────┐   tap    ┌────────────┐  WebM/Opus  ┌──────────────────┐
+  │  PWA    │ ──────►  │  Record    │ ──────────► │ POST /api/       │
+  │  Review │  "start" │  (island)  │    blob      │ transcribe       │
+  │  Page   │          │  MediaRec. │              │ (JVM proxy)      │
+  └─────────┘          └────────────┘              └────────┬─────────┘
+                                                            │
+                                                  audio → whisper.cpp
+                                                  (local, port 8178)
+                                                            │
+                                                      transcript
+                                                            │
+                                                            ▼
+  ┌──────────────────┐  POST /api/:id/score   ┌─────────────────────┐
+  │  Score Display   │ ◄──────────────────── │   JVM Backend        │
+  │  • similarity %  │                        │   core/recall.cljc   │
+  │  • missed chunks │                        │   (pure scoring)     │
+  │  • next review   │                        └─────────────────────┘
   └──────────────────┘
 ```
 
-The browser handles voice capture via the `SpeechRecognition` API (CLJS island).
-The transcript is sent to the JVM backend where `core/recall.cljc` computes
-similarity and identifies gaps — all in pure functions.
+The browser captures audio via the MediaRecorder API (CLJS island). The audio
+blob is POSTed to the JVM backend which proxies it to whisper.cpp for local
+transcription — no internet required. The transcript is then scored by
+`core/recall.cljc` which computes similarity and identifies gaps — all in
+pure functions.
 
 ---
 
@@ -281,22 +288,23 @@ scheduled task checks `reviews.due_at` and triggers pushes for due items.
 - [x] Dashboard page showing upcoming reviews with shape badges and due status
 - [x] **Tests**: 10 test cases — SM-2 interval calculations, ease factor floor, schema conformance, interval monotonicity, similarity→quality boundaries
 
-### Phase 3 — Review Session (Free Recall + Scaffolding)
+### Phase 3 — Review Session (Free Recall + Scaffolding) ✅
 > *"As a learner I want to practice recalling content with help when I'm stuck"*
 
 Free recall is the default for every review. Scaffolds (headings, summary,
 keyword-blanks) are hints offered when the user has struggled previously or
 the content interval is long. The user always attempts recall first.
 
-- [ ] `core/review.cljc` — scaffold generators: `headings-scaffold`, `summary-scaffold`, `keyword-blanks-scaffold`
-- [ ] `core/review.cljc` — `select-scaffold-level` pure function (SM-2 state → scaffold level 0-3)
-- [ ] Review session page (`pages/review.clj`) — server-rendered with free-recall textarea + scaffold reveal
-- [ ] Review island (`islands/review.cljs`) — handles text input, scaffold toggle, submit to `/api/reviews/:id/complete`
-- [ ] Update `ReviewShape` schema → `ScaffoldLevel` (`:none`, `:headings`, `:summary`, `:keyword-blanks`)
-- [ ] Route: `GET /review/:id` — starts a review session for a specific review
-- [ ] **Tests**: scaffold generation from known inputs, scaffold selection from SM-2 state
+- [x] `core/review.cljc` — scaffold generators: `headings-scaffold`, `summary-scaffold`, `keyword-blanks-scaffold`
+- [x] `core/review.cljc` — `select-scaffold-level` pure function (SM-2 state → scaffold level 0-3)
+- [x] Review session page (`pages/review.clj`) — server-rendered with free-recall textarea + scaffold reveal
+- [x] Review island (`islands/review.cljs`) — handles text input, scaffold toggle, submit to `/api/reviews/:id/complete`
+- [x] Update `ReviewShape` schema → `ScaffoldLevel` (`:none`, `:headings`, `:summary`, `:keyword-blanks`)
+- [x] Route: `GET /review/:id` — starts a review session for a specific review
+- [x] `server.clj` — `wrap-exceptions` middleware for error visibility
+- [x] **Tests**: 7 test groups — scaffold generation from known inputs, scaffold selection from SM-2 state
 
-### Phase 4 — Voice Input & Similarity Scoring
+### Phase 4 — Voice Input & Similarity Scoring ✅
 > *"As a learner I want to speak my recall and see what I missed"*
 > Reference: `voice-pwa/modules/adapter/src/voice/adapter/audio_recorder.cljs`
 
@@ -304,14 +312,20 @@ Voice is an input method for free recall — it replaces typing, not the
 review flow. Similarity scoring compares the transcript (voice or typed)
 against source material to derive SM-2 quality automatically.
 
-- [ ] `adapter/speech.cljs` — Web Speech API wrapper (adapt from voice-pwa's `audio_recorder.cljs`)
-- [ ] `core/recall.cljc` — transcript/source similarity scoring (extend voice-pwa's Dice coefficient to token-level)
-- [ ] `core/recall.cljc` — missed-chunk identification (which chunks weren't recalled?)
-- [ ] Voice recording island with visual feedback (replaces or augments the text input from Phase 3)
-- [ ] Score display with highlighted gaps (show what was missed after submit)
-- [ ] Written text fallback for browsers without SpeechRecognition
-- [ ] Wire similarity score → `similarity->quality` → SM-2 (replaces manual quality input from Phase 3)
-- [ ] **Tests**: similarity scoring with known transcript/source pairs
+- [x] `adapter/audio.cljs` — MediaRecorder wrapper for voice capture (adapted from voice-pwa's `audio_recorder.cljs`)
+- [x] `adapter/whisper.clj` — whisper.cpp HTTP client for local transcription (JVM, multipart POST to port 8178)
+- [x] `scripts/whisper.bb` — Download whisper.cpp server binary + base.en model (like PocketBase pattern)
+- [x] `bb.edn` — `whisper:install`, `whisper:start`, `whisper:stop` tasks
+- [x] `core/recall.cljc` — transcript/source similarity scoring (Jaccard index at token level, stop-word filtering)
+- [x] `core/recall.cljc` — missed-chunk identification (which chunks weren't recalled?)
+- [x] Voice recording button with visual feedback (pulsing red during recording, status line shows duration)
+- [x] Score display: similarity %, missed chunks with left-border highlight, next review date
+- [x] Written text fallback for browsers without MediaRecorder (voice button hidden, textarea always available)
+- [x] Wire: `POST /api/transcribe` → whisper.cpp proxy → transcript
+- [x] Wire: `POST /api/reviews/:id/score` → `score-recall` → `similarity->quality` → SM-2 → complete + schedule next
+- [x] Manual quality buttons retained as "Rate manually" fallback
+- [x] `core/schemas.cljc` — `RecallScore` schema
+- [x] **Tests**: tokenization (with stop-word stripping), similarity with known pairs, missed chunk detection with threshold, full scoring pipeline
 
 ### Phase 5 — PWA, Notifications & Mobile Share Target
 > *"Notify me when reviews are due"*
@@ -352,7 +366,7 @@ Each phase is designed to teach specific Clojure concepts:
 | 1 | Namespaces, Malli schemas, pure functions, maps, destructuring |
 | 2 | Higher-order functions, recursion, `loop/recur`, `#?` reader conditionals |
 | 3 | Sequence operations (`map`, `filter`, `reduce`), string manipulation, regex, Reitit path params |
-| 4 | ClojureScript interop (`js/`), promises, callbacks, async patterns, Web Speech API |
+| 4 | ClojureScript interop (`js/`), promises, callbacks, async patterns, MediaRecorder API, JVM HTTP proxying |
 | 5 | Atoms, JVM interop (web-push lib), Babashka scripting, service workers |
 | 6 | Graph data structures, `group-by`, `frequencies`, reducing functions |
 
@@ -366,7 +380,7 @@ Each phase is designed to teach specific Clojure concepts:
 | Web server | Ring + Reitit (JVM) |
 | Frontend | Server-rendered Hiccup + CLJS islands |
 | Persistence | PocketBase (SQLite-backed, runs alongside JVM) |
-| Voice capture | Web Speech API (SpeechRecognition) |
+| Voice capture | MediaRecorder API (browser) → whisper.cpp (local transcription) |
 | Similarity | Token-overlap + Jaccard index (core, pure) |
 | Push notifications | web-push (JVM library) |
 | Styling | Open Props + Shoelace web components |
@@ -380,8 +394,9 @@ Each phase is designed to teach specific Clojure concepts:
    and Jaccard index in pure Clojure. This keeps it local, fast, and deterministic.
    An LLM-based scorer can be added later as an optional adapter.
 
-2. **Voice via Web Speech API** — Runs in-browser, no server-side speech processing.
-   Falls back to typed text input for unsupported browsers.
+2. **Voice via whisper.cpp** — Audio captured in-browser via MediaRecorder, transcribed
+   locally by whisper.cpp (C/C++ port of OpenAI Whisper). No internet required, no
+   trusted certificate needed. Falls back to typed text input if MediaRecorder unavailable.
 
 3. **Quality derived from similarity** — Instead of Anki's self-grading buttons,
    Seren automatically maps similarity scores to SM-2 quality values. This removes
