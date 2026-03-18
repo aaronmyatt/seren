@@ -111,6 +111,10 @@
   test:cljs
   {:doc  "Run ClojureScript tests via Node.js"
    :task (shell "npx shadow-cljs compile test")}
+  
+  test:coverage
+  {:doc "Run tests with coverage report (See ./target/coverage/)"
+   :task (shell "clojure" "-M:test:test/coverage")}
 
   ;; --- PocketBase ---
   pb:install

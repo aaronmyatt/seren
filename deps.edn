@@ -51,8 +51,18 @@
     {:git/tag "v0.5.1" :git/sha "dfb30dd"}}
    :exec-fn cognitect.test-runner.api/test
    :exec-args {:dirs ["modules/core/test"
-                       "modules/adapter/test"
-                       "modules/app/test"]}}
+                      "modules/adapter/test"
+                      "modules/app/test"]}}
+
+  :test/coverage
+  {:extra-deps {cloverage/cloverage {:mvn/version "1.2.4"}}
+   :main-opts ["-m" "cloverage.coverage"
+               "--src-ns-path" "modules/core/src"
+               "--src-ns-path" "modules/adapter/src"
+               "--src-ns-path" "modules/app/src"
+               "--test-ns-path" "modules/core/test"
+               "--test-ns-path" "modules/adapter/test"
+               "--test-ns-path" "modules/app/test"]}
 
   ;; Per-module test aliases
   :test/core
