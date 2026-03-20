@@ -8,7 +8,8 @@
 
    See plan.md for the full orchestration flow:
    ingest → schedule → review → score"
-  (:require [malli.core :as m]
+  (:require [clojure.string :as str]
+            [malli.core :as m]
             [seren.core.content :as content]
             [seren.core.recall :as recall]
             [seren.core.review :as review]
@@ -16,7 +17,10 @@
             [seren.core.schemas :as schemas]
             [seren.adapter.content-store :as content-store]
             [seren.adapter.review-store :as review-store]
-            [seren.schemas.common :as common]))
+            [seren.schemas.common :as common]
+            ;; URL fetching is JVM-only — conditional require.
+            ;; See: https://clojure.org/guides/reader_conditionals
+            #?(:clj [seren.adapter.url-fetcher :as url-fetcher])))
 
 ;; --- Configuration ---
 
@@ -49,42 +53,91 @@
 
 (def IngestResult
   "Result of a content ingestion attempt.
-   Phase 2: on success, also returns the initial :review."
+   Phase 2: on success, also returns the initial :review.
+   Phase 4.5: adds :existing flag when a duplicate URL is detected."
   [:or
    [:map
     [:success :boolean]
     [:content schemas/Content]
-    [:review {:optional true} [:maybe schemas/Review]]]
+    [:review {:optional true} [:maybe schemas/Review]]
+    [:existing {:optional true} [:maybe :boolean]]]
    [:map
     [:success :boolean]
-    [:reason :string]]])
+    [:reason :string]
+    [:message {:optional true} [:maybe :string]]]])
+
+(defn- resolve-content-input
+  "Resolves the content input by fetching a URL if needed.
+
+   Rules:
+   1. If :text is provided, pass through unchanged (:text wins)
+   2. If only :url is provided, fetch + extract on JVM; error on CLJS
+   3. Returns the resolved input map or an error map with :error key
+
+   See plan-url-fetching.md § 'Flow Change'"
+  #_{:clj-kondo/ignore [:unused-binding]}
+  [{:keys [text url title] :as input}]
+  (if-not (and (str/blank? text) (not (str/blank? url)))
+    ;; Text provided (or no URL) — pass through unchanged
+    input
+    ;; URL provided but no text — fetch it
+    #?(:clj
+       (let [result (url-fetcher/fetch-and-extract url)]
+         (if (:success result)
+           (cond-> {:text  (:text result)
+                    :title (or (when-not (str/blank? title) title)
+                               (:title result))
+                    :url   url}
+             (:meta result) (assoc :meta (:meta result)))
+           {:error   (:reason result)
+            :message (:message result)}))
+       :cljs
+       {:error "URL fetching is not supported in the browser"})))
 
 (defn ingest-content!
-  "Ingests new content: validates input, processes text, persists to store,
-   and creates an initial review scheduled for immediate practice.
+  "Ingests new content: resolves URL (if needed), validates input, processes
+   text, persists to store, and creates an initial review.
 
-   Returns {:success true :content ... :review ...} or {:success false :reason ...}.
+   Phase 4.5 changes:
+   - URL-only input triggers server-side fetch + extraction (JVM only)
+   - Duplicate URLs return existing content with :existing true
+   - Metadata from URL fetching is passed through to the Content entity
 
-   Phase 2 change: now also creates an initial Review entity via the scheduler,
-   so new content appears in the 'due for review' dashboard immediately."
+   Returns {:success true :content ... :review ...}
+   or {:success true :content ... :existing true} for duplicates
+   or {:success false :reason ...}"
   [input]
-  (let [validation (content/validate-content-input
-                     {:text  (:text input)
-                      :url   (:url input)
-                      :title (:title input)})]
-    (if-not (:valid? validation)
-      {:success false :reason (:reason validation)}
-      (let [processed (content/process-content
-                        {:text  (:text input)
-                         :url   (:url input)
-                         :title (:title input)})
-            _         (content-store/save-content! (:store-dir input) processed)
-            ;; Phase 2: create initial review if review-dir is configured
-            review    (when-let [review-dir (:review-dir input)]
-                        (let [r (sched/initial-review (:id processed) (now-ms))]
-                          (review-store/save-review! review-dir r)
-                          r))]
-        {:success true :content processed :review review}))))
+  ;; Step 1: Check for duplicate URL before doing any work
+  (if-let [existing (when-not (str/blank? (:url input))
+                      (content-store/find-by-url (:store-dir input) (:url input)))]
+    ;; Duplicate URL — return existing content without re-ingesting.
+    ;; A repeated URL is a learning signal: the user may have forgotten
+    ;; they saved it. The UI can nudge them to review instead.
+    {:success  true
+     :content  existing
+     :existing true}
+    ;; Step 2: Resolve URL → text if needed
+    (let [resolved (resolve-content-input input)]
+      (if (:error resolved)
+        {:success false
+         :reason  (:error resolved)
+         :message (:message resolved)}
+        ;; Step 3: Validate + process + store (existing pipeline)
+        (let [content-input {:text  (:text resolved)
+                             :url   (or (:url resolved) (:url input))
+                             :title (:title resolved)
+                             :meta  (:meta resolved)}
+              validation    (content/validate-content-input content-input)]
+          (if-not (:valid? validation)
+            {:success false :reason (:reason validation)}
+            (let [processed (content/process-content content-input)
+                  _         (content-store/save-content! (:store-dir input) processed)
+                  ;; Create initial review if review-dir is configured
+                  review    (when-let [review-dir (:review-dir input)]
+                              (let [r (sched/initial-review (:id processed) (now-ms))]
+                                (review-store/save-review! review-dir r)
+                                r))]
+              {:success true :content processed :review review})))))))
 
 (m/=> ingest-content! [:=> [:cat IngestInput] IngestResult])
 
@@ -316,12 +369,24 @@
   (def config {:store-dir  "/tmp/seren-content"
                :review-dir "/tmp/seren-reviews"})
 
-  ;; Ingest content — now also creates a review
+  ;; Ingest content from text — existing flow
   (ingest-content! {:store-dir  "/tmp/seren-content"
                     :review-dir "/tmp/seren-reviews"
                     :text "# Clojure\n\nA functional language.\n\n## Immutability\n\nAll data is immutable."
                     :title "Clojure Guide"})
   ;; => {:success true, :content {...}, :review {...}}
+
+  ;; Phase 4.5: Ingest from URL — fetches + extracts article text
+  (ingest-content! {:store-dir  "/tmp/seren-content"
+                    :review-dir "/tmp/seren-reviews"
+                    :url "https://clojure.org/about/rationale"})
+  ;; => {:success true, :content {:title "...", :source-text "...", :meta {...}}, :review {...}}
+
+  ;; Phase 4.5: Duplicate URL — returns existing content
+  (ingest-content! {:store-dir  "/tmp/seren-content"
+                    :review-dir "/tmp/seren-reviews"
+                    :url "https://clojure.org/about/rationale"})
+  ;; => {:success true, :content {...}, :existing true}
 
   ;; List reviews due now
   (list-due-reviews config)

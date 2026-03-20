@@ -7,7 +7,7 @@
      GET  /library                   → content library (ingest + browse)
      GET  /dashboard                 → dashboard (upcoming reviews, scores)
      GET  /review/:id                → review session page (free recall)
-     POST /api/ingest                → ingest content (EDN body)
+     POST /api/ingest                → ingest content (EDN or JSON body, accepts URL-only)
      GET  /api/content               → list all content (EDN response)
      GET  /api/reviews               → list all reviews (EDN response)
      GET  /api/reviews/due           → list reviews due now (EDN response)
@@ -34,7 +34,20 @@
             [seren.app.main :as app]
             [seren.app.pages.library :as library-page]
             [seren.app.pages.dashboard :as dashboard-page]
-            [seren.app.pages.review :as review-page]))
+            [seren.app.pages.review :as review-page]
+            ;; JSON parsing for Chrome extension / bookmarklet ingestion.
+            ;; See: https://github.com/clojure/data.json
+            [clojure.data.json :as json]))
+
+;; --- Build fingerprint ---
+;; This timestamp is set when the namespace is (re)loaded, so it changes
+;; on every tools.namespace refresh / (reset!). Comparing this value
+;; between requests is the quickest way to verify the server is running
+;; fresh code after an edit.
+;; See: https://github.com/clojure/tools.namespace#repl-usage
+(def ^:private loaded-at
+  "ISO timestamp of when this namespace was last loaded/reloaded."
+  (str (java.time.Instant/now)))
 
 ;; --- App state ---
 ;; Store directories are configurable; default to .seren-data/ in the project root.
@@ -46,9 +59,10 @@
   {:store-dir  default-store-dir
    :review-dir default-review-dir})
 
-;; --- EDN API helpers ---
-;; The API speaks EDN — natural for ClojureScript frontends.
-;; A JSON layer can be added later for non-CLJS clients.
+;; --- API helpers ---
+;; The API speaks EDN natively (natural for ClojureScript frontends)
+;; and also accepts JSON for Chrome extensions, bookmarklets, and curl.
+;; See: https://github.com/clojure/data.json
 
 (defn- read-edn-body
   "Reads the request body as EDN. Returns nil on parse failure.
@@ -61,6 +75,29 @@
           (edn/read-string s))))
     (catch Exception _ nil)))
 
+(defn- read-json-body
+  "Reads the request body as JSON, converting keys to keywords.
+   Returns nil on parse failure.
+   See: https://github.com/clojure/data.json#reading-json"
+  [request]
+  (try
+    (when-let [body (:body request)]
+      (let [s (slurp body)]
+        (when-not (empty? s)
+          (json/read-str s :key-fn keyword))))
+    (catch Exception _ nil)))
+
+(defn- read-body
+  "Reads the request body as EDN or JSON based on Content-Type header.
+   Falls back to EDN for backwards compatibility with existing CLJS clients.
+   JSON support enables Chrome extensions and bookmarklets to POST directly.
+   See: https://github.com/ring-clojure/ring/wiki/Concepts#requests"
+  [request]
+  (let [content-type (or (get-in request [:headers "content-type"]) "")]
+    (if (str/includes? content-type "application/json")
+      (read-json-body request)
+      (read-edn-body request))))
+
 (defn- edn-response
   "Creates a Ring response with EDN content type."
   [status body]
@@ -68,20 +105,61 @@
       (response/status status)
       (response/content-type "application/edn")))
 
+(defn- json-response
+  "Creates a Ring response with JSON content type.
+   Used when the request came in as JSON (Content-Type negotiation)."
+  [status body]
+  (-> (response/response (json/write-str body))
+      (response/status status)
+      (response/content-type "application/json")))
+
+(defn- negotiate-response
+  "Returns a response in the same format as the request (JSON or EDN).
+   Chrome extensions send JSON and expect JSON back.
+   CLJS clients send EDN and expect EDN back."
+  [request status body]
+  (let [content-type (or (get-in request [:headers "content-type"]) "")]
+    (if (str/includes? content-type "application/json")
+      (json-response status body)
+      (edn-response status body))))
+
 ;; --- API handlers ---
 
-(defn- ingest-handler
-  "POST /api/ingest — ingests content from EDN body.
-   Expects: {:text \"...\" :title \"...\" :url \"...\"}
-   Returns: {:success true :content {...} :review {...}} or {:success false :reason \"...\"}"
+(defn- status-handler
+  "GET /api/status — returns a build fingerprint so you can verify the
+   server is running fresh code after a (reset!). The :loaded-at value
+   changes every time this namespace is reloaded.
+
+   Usage: curl http://localhost:3000/api/status
+   If :loaded-at doesn't change after editing code, you forgot to (reset!)."
   [request]
-  (if-let [body (read-edn-body request)]
+  (negotiate-response request 200
+                      {:status    "ok"
+                       :loaded-at loaded-at}))
+
+(defn- ingest-handler
+  "POST /api/ingest — ingests content from EDN or JSON body.
+   Accepts: {:text \"...\" :title \"...\" :url \"...\"}
+   Also accepts JSON: {\"url\": \"...\", \"title\": \"...\"}
+
+   URL-only payloads trigger server-side fetch + extraction.
+   Duplicate URLs return existing content with :existing true.
+
+   Returns: {:success true :content {...} :review {...}}
+   or {:success true :content {...} :existing true} for duplicates
+   or {:success false :reason \"...\"}"
+  [request]
+  (if-let [body (read-body request)]
     (let [result (app/ingest-content!
                    (merge (app-config) body))]
       (if (:success result)
-        (edn-response 201 result)
-        (edn-response 400 result)))
-    (edn-response 400 {:success false :reason "Could not parse request body as EDN"})))
+        (negotiate-response request
+                            (if (:existing result) 200 201)
+                            result)
+        (negotiate-response request 400 result)))
+    (negotiate-response request 400
+                        {:success false
+                         :reason "Could not parse request body (accepts EDN or JSON)"})))
 
 (defn- list-content-handler
   "GET /api/content — returns all ingested content as EDN."
@@ -212,6 +290,7 @@
    ["/library"                    {:get  {:handler library-page/handler}}]
    ["/dashboard"                  {:get  {:handler dashboard-page/handler}}]
    ["/review/:id"                 {:get  {:handler review-page/handler}}]
+   ["/api/status"                 {:get  {:handler status-handler}}]
    ["/api/ingest"                 {:post {:handler ingest-handler}}]
    ["/api/content"                {:get  {:handler list-content-handler}}]
    ["/api/reviews"                {:get  {:handler list-reviews-handler}}]

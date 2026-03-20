@@ -6,16 +6,20 @@
   :dev
   {:extra-paths ["dev/src"
                  "shared/src"
-                 "modules/core/src"
-                 "modules/core/test"
-                 "modules/adapter/src"
                  "modules/adapter/test"
                  "modules/app/src"
                  "modules/app/test"]
    :extra-deps
-   {org.clojure/clojure          {:mvn/version "1.12.0"}
+   {seren/core                   {:local/root "modules/core"}
+    seren/adapter                {:local/root "modules/adapter"}
+    seren/app                    {:local/root "modules/app"}
+    org.clojure/clojure          {:mvn/version "1.12.0"}
     metosin/malli                {:mvn/version "0.20.0"}
     org.clojure/test.check       {:mvn/version "1.1.1"}
+    ;; Reliable namespace reloading — dependency-order refresh.
+    ;; Prevents stale-code bugs where edits aren't picked up by a running JVM.
+    ;; See: https://github.com/clojure/tools.namespace
+    org.clojure/tools.namespace  {:mvn/version "1.5.0"}
     ;; Web server stack (JVM-only, ignored by CLJS)
     ;; See: https://github.com/ring-clojure/ring
     ring/ring-core               {:mvn/version "1.13.0"}
@@ -47,6 +51,8 @@
     metosin/reitit-ring          {:mvn/version "0.7.2"}
     hiccup/hiccup                {:mvn/version "2.0.0"}
     ring/ring-mock               {:mvn/version "0.4.0"}
+    org.jsoup/jsoup              {:mvn/version "1.18.3"}
+    org.clojure/data.json        {:mvn/version "2.5.1"}
     io.github.cognitect-labs/test-runner
     {:git/tag "v0.5.1" :git/sha "dfb30dd"}}
    :exec-fn cognitect.test-runner.api/test
@@ -84,6 +90,7 @@
    {org.clojure/clojure          {:mvn/version "1.12.0"}
     metosin/malli                {:mvn/version "0.20.0"}
     org.clojure/test.check       {:mvn/version "1.1.1"}
+    org.jsoup/jsoup              {:mvn/version "1.18.3"}
     io.github.cognitect-labs/test-runner
     {:git/tag "v0.5.1" :git/sha "dfb30dd"}}
    :exec-fn cognitect.test-runner.api/test
@@ -103,6 +110,8 @@
     metosin/reitit-ring          {:mvn/version "0.7.2"}
     hiccup/hiccup                {:mvn/version "2.0.0"}
     ring/ring-mock               {:mvn/version "0.4.0"}
+    org.jsoup/jsoup              {:mvn/version "1.18.3"}
+    org.clojure/data.json        {:mvn/version "2.5.1"}
     io.github.cognitect-labs/test-runner
     {:git/tag "v0.5.1" :git/sha "dfb30dd"}}
    :exec-fn cognitect.test-runner.api/test
@@ -150,3 +159,4 @@
     metosin/malli                {:mvn/version "0.20.0"}
     org.clojure/test.check       {:mvn/version "1.1.1"}
     thheller/shadow-cljs         {:mvn/version "2.28.20"}}}}}
+
