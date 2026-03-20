@@ -27,9 +27,13 @@ Core (pure, .cljc)  →  Adapter (side effects, .clj/.cljs)  →  App (wiring, .
 ## Agent Workflow
 
 1. **No unsolicited documentation** — Do not generate README files, changelogs, doc files, or verbose markdown unless explicitly requested. Prefer concise inline documentation over separate files.
-2. **Educational comments with links** — Code comments should teach, not just label. Include links to relevant official documentation, RFCs, or explanatory resources whenever possible. Example:
+2. **Educational comments with links** — Code comments should teach, not just label. Include links to relevant official documentation, RFCs, or explanatory resources whenever possible. Comments in REPL debug scripts should be especially verbose — explain *why* a form is structured the way it is, what the expected output means, and how it connects to the next step. The goal is that a developer reading the script learns something about the domain, not just the code. Example:
    ```clojure
    ;; Malli function schemas register the spec for runtime validation and CLI discovery.
+   ;; When you annotate a function with m/=>, Malli can:
+   ;;   1. Validate inputs/outputs at dev time (via instrumentation)
+   ;;   2. Generate test data via the schema's generator
+   ;;   3. Expose the function's contract to CLI tooling (bb core:cli describe)
    ;; See: https://github.com/metosin/malli#function-schemas
    (m/=> validate-email [:=> [:cat :string] ValidationResult])
    ```
@@ -38,8 +42,15 @@ Core (pure, .cljc)  →  Adapter (side effects, .clj/.cljs)  →  App (wiring, .
    - Make the minimal change to pass the test (green)
    - Refactor only if needed
    - Run tests after each step (`bb test:core`, `bb test:cljs`, etc.)
-4. **Proactive suggestions** — When you notice opportunities to improve code quality, architecture, developer experience, or project conventions, suggest them. Flag technical debt, missing tests, inconsistent patterns, or potential simplifications. Suggestions should be clearly marked as optional and not acted on without approval.
-5. **Human-makes-the-edit** — For small, localized changes (type hints, renaming, fixing a single line, adding an import, tweaking a value), guide the human to make the edit themselves rather than applying it with agent tools. Describe *what* to change and *where*, but let them do it. This builds muscle memory, keeps the human engaged with their own codebase, and saves tokens. Reserve agent edits for larger, multi-file, or repetitive changes where manual editing would be tedious or error-prone.
+4. **REPL-driven debugging** — When diagnosing issues or verifying behaviour, produce a standalone `.clj` debug script with small, independently evaluable forms. Each form should test one function in isolation, print its result, and include an expected-output comment. Structure the script as numbered steps from pure/simple to side-effectful/integrated (e.g. test a pure core function first, then an adapter function, then the end-to-end pipeline). This lets the human evaluate one form at a time in their REPL and pinpoint exactly where behaviour diverges from expectations. Prefer this over blind code changes — especially after a fix has failed to take effect. Each step should include verbose educational comments explaining *what* the form tests, *why* it matters, and *how* the result connects to the next step — treat the script as a guided tour of the problem space, not just a list of assertions.
+5. **Proactive suggestions** — When you notice opportunities to improve code quality, architecture, developer experience, or project conventions, suggest them. Flag technical debt, missing tests, inconsistent patterns, or potential simplifications. Suggestions should be clearly marked as optional and not acted on without approval.
+6. **Human-makes-the-edit** — For small, localized changes (type hints, renaming, fixing a single line, adding an import, tweaking a value), guide the human to make the edit themselves rather than applying it with agent tools. Describe *what* to change and *where*, but let them do it. This builds muscle memory, keeps the human engaged with their own codebase, and saves tokens. Reserve agent edits for larger, multi-file, or repetitive changes where manual editing would be tedious or error-prone.
+7. **Reload discipline** — The JVM caches compiled bytecode. Editing a `.clj`/`.cljc` file has NO effect on a running server or REPL until the namespace is explicitly reloaded. After making code changes:
+   - In the REPL: call `(reset!)` (stops server → refreshes all changed namespaces in dependency order → restarts server)
+   - For pure-function-only changes: `(refresh)` reloads without restarting
+   - Verify with: `curl http://localhost:3000/api/status` — the `:loaded-at` timestamp changes on every reload
+   - REPL debug scripts should include a reload step at the top (e.g. `(require 'seren.core.content :reload)`) or remind the human to call `(reset!)` first
+   - If a fix has no apparent effect, **always suspect stale code** before trying a different approach
 
 ## Cross-Platform Rules
 
