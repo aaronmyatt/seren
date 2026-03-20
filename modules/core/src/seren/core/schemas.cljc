@@ -33,15 +33,32 @@
 
 (def ContentInput
   "Raw input for content ingestion — either a URL or pasted text.
-   At least one of :url or :text must be provided."
+   At least one of :url or :text must be provided.
+   The :meta key is added by the URL fetcher (adapter layer) and passed
+   through to the Content entity by process-content."
   [:map
    [:url {:optional true} [:maybe Url]]
    [:title {:optional true} [:maybe :string]]
-   [:text {:optional true} [:maybe :string]]])
+   [:text {:optional true} [:maybe :string]]
+   [:meta {:optional true} [:maybe [:map]]]])
+
+;; Metadata extracted from <meta> and Open Graph tags when content is
+;; ingested via URL fetching. Optional — absent for manually pasted text.
+;; See: https://ogp.me/
+(def ContentMeta
+  "Metadata from HTML meta/OG tags. All fields optional — only non-blank
+   values from the source page are included."
+  [:map
+   [:author {:optional true} [:maybe :string]]
+   [:description {:optional true} [:maybe :string]]
+   [:site-name {:optional true} [:maybe :string]]
+   [:published-at {:optional true} [:maybe :string]]
+   [:image-url {:optional true} [:maybe Url]]])
 
 (def Content
   "A fully processed content entity ready for review scheduling.
-   Created by the ingestion pipeline from ContentInput."
+   Created by the ingestion pipeline from ContentInput.
+   The optional :meta field carries HTML metadata when ingested from a URL."
   [:map
    [:id common/Id]
    [:url {:optional true} [:maybe Url]]
@@ -51,7 +68,26 @@
    [:headings [:vector Heading]]
    [:summary common/NonBlankString]
    [:tags [:vector :string]]
+   [:meta {:optional true} [:maybe ContentMeta]]
    [:created-at common/Timestamp]])
+
+;; Result of URL fetching — returned by adapter/url-fetcher.
+;; Success carries extracted text + metadata; failure carries a reason string.
+;; See: https://github.com/metosin/malli#value-schemas
+(def FetchResult
+  "Result map from URL fetching. :reason on failure can be a keyword string
+   like \"thin-content\" to let the UI distinguish error types."
+  [:or
+   [:map
+    [:success [:= true]]
+    [:text common/NonBlankString]
+    [:title :string]
+    [:url Url]
+    [:meta {:optional true} ContentMeta]]
+   [:map
+    [:success [:= false]]
+    [:reason :string]
+    [:message {:optional true} [:maybe :string]]]])
 
 ;; --- Review schemas (Phase 2) ---
 ;; Reviews are scheduled using the SM-2 spaced repetition algorithm.

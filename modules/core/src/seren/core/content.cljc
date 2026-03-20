@@ -101,7 +101,57 @@
                     :text  (str/trim heading-text)})))
          vec)))
 
+;; --- Heading-aware chunking ---
+
+(defn- heading-line?
+  "Returns truthy (the match vector) if a line is a markdown heading."
+  [line]
+  (re-matches #"^#{1,6}\s+.+" (str/trim line)))
+
+(defn chunk-by-heading
+  "Splits normalised text into heading-delimited chunks.
+   Each chunk contains a heading and all content that follows it until the
+   next heading (or end of text). Content before the first heading becomes
+   chunk 0 (the preamble).
+
+   This produces coarser, more meaningful chunks than paragraph-level
+   splitting — each chunk is a complete section that makes sense on its own
+   for review and recall.
+
+   Returns a vector of Chunk maps with :index and :text.
+
+   See: https://www.learningscientists.org/blog/2016/8/18-1"
+  [text]
+  (if (str/blank? text)
+    []
+    (let [normalized (normalize-text text)
+          lines      (str/split-lines normalized)
+          ;; Walk lines, accumulating sections. Each section starts at a
+          ;; heading line (or at the beginning for the preamble).
+          sections
+          (reduce
+            (fn [acc line]
+              (if (heading-line? line)
+                ;; Start a new section with this heading
+                (conj acc [line])
+                ;; Append to the current (last) section
+                (if (empty? acc)
+                  ;; No section yet — start a preamble section
+                  (conj acc [line])
+                  (update acc (dec (count acc)) conj line))))
+            []
+            lines)]
+      (->> sections
+           (map (fn [section-lines]
+                  (str/trim (str/join "\n" section-lines))))
+           (remove str/blank?)
+           (map-indexed (fn [i text]
+                          {:index i :text text}))
+           vec))))
+
 (m/=> extract-headings [:=> [:cat :string] [:vector schemas/Heading]])
+
+(m/=> chunk-by-heading [:=> [:cat :string] [:vector schemas/Chunk]])
 
 ;; --- Summarisation ---
 
@@ -195,11 +245,20 @@
    6. Derive title: explicit > first heading > first 50 chars
 
    This is a pure function — all side effects (fetching URLs, persisting)
-   happen in the Adapter and App layers."
-  [{:keys [text title url] :as _input}]
+   happen in the Adapter and App layers.
+
+   The optional :meta key (from URL fetching) is passed through to the
+   Content entity when present. Metadata extraction is the Adapter's
+   responsibility — Core just preserves it."
+  [{:keys [text title url meta] :as _input}]
   (let [source    (normalize-text (or text ""))
         headings  (extract-headings (or text ""))
-        chunks    (chunk-text source)
+        ;; Use heading-aware chunking when the text has headings (e.g. from
+        ;; URL-fetched articles with ## markdown headings). Fall back to
+        ;; paragraph-level chunking for plain pasted text without structure.
+        chunks    (if (seq headings)
+                    (chunk-by-heading source)
+                    (chunk-text source))
         summary   (summarize source)
         tags      (extract-tags source)
         ;; Title derivation: explicit title > first heading > truncated text
@@ -207,18 +266,21 @@
                           (when (seq headings) (:text (first headings)))
                           (let [t (subs source 0 (min 50 (count source)))]
                             (if (str/blank? t) "Untitled" t)))]
-    {:id         (str
-                   #?(:clj  (java.util.UUID/randomUUID)
-                      :cljs (random-uuid)))
-     :url        url
-     :title      derived-title
-     :source-text source
-     :chunks     chunks
-     :headings   headings
-     :summary    summary
-     :tags       tags
-     :created-at #?(:clj  (System/currentTimeMillis)
-                    :cljs  (.getTime (js/Date.)))}))
+    (cond-> {:id         (str
+                           #?(:clj  (java.util.UUID/randomUUID)
+                              :cljs (random-uuid)))
+             :url        url
+             :title      derived-title
+             :source-text source
+             :chunks     chunks
+             :headings   headings
+             :summary    summary
+             :tags       tags
+             :created-at #?(:clj  (System/currentTimeMillis)
+                            :cljs  (.getTime (js/Date.)))}
+      ;; Pass through metadata from URL fetching when present.
+      ;; Metadata is extracted by adapter/url-fetcher, not by Core.
+      meta (assoc :meta meta))))
 
 (m/=> process-content [:=> [:cat schemas/ContentInput] schemas/Content])
 
@@ -235,15 +297,23 @@
   (normalize-text "  hello   world  \n\n  second  paragraph  ")
   ;; => "hello world\n\nsecond paragraph"
 
-  ;; Chunk into paragraphs
+  ;; Chunk into paragraphs (plain text without headings)
   (chunk-text "Para one.\n\nPara two.\n\nPara three.")
   ;; => [{:index 0 :text "Para one."} {:index 1 :text "Para two."} ...]
+
+  ;; Chunk by heading (text with markdown headings — e.g. from URL fetch)
+  (chunk-by-heading "Preamble text.\n\n## Section A\n\nContent A.\n\n## Section B\n\nContent B.")
+  ;; => [{:index 0 :text "Preamble text."}
+  ;;     {:index 1 :text "## Section A\nContent A."}
+  ;;     {:index 2 :text "## Section B\nContent B."}]
 
   ;; Extract headings
   (extract-headings "# Title\n\nBody\n\n## Section")
   ;; => [{:level 1 :text "Title"} {:level 2 :text "Section"}]
 
-  ;; Full pipeline
+  ;; Full pipeline — with headings, uses chunk-by-heading automatically
   (process-content {:text "# Clojure\n\nA functional language.\n\n## Immutability\n\nData is immutable."
                     :title "Clojure Guide"})
+  ;; => chunks will be [{:index 0 :text "# Clojure\nA functional language."}
+  ;;                     {:index 1 :text "## Immutability\nData is immutable."}]
   )
