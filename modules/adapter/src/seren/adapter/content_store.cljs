@@ -9,7 +9,8 @@
    matching the JVM adapter's store-dir concept.
 
    See: https://clojure.org/reference/atoms"
-  (:require [malli.core :as m]
+  (:require [clojure.string :as str]
+            [malli.core :as m]
             [seren.core.schemas :as schemas]
             [seren.schemas.common :as common]))
 
@@ -41,6 +42,19 @@
 
 (m/=> list-contents [:=> [:cat :string] [:vector schemas/Content]])
 
+(defn find-by-url
+  "Finds a Content entity by its :url field. Returns the first match or nil.
+   Used for duplicate detection — a repeated URL is a learning signal,
+   not an error. See plan-url-fetching.md § 'Duplicate URLs'."
+  [store-key url]
+  (when-not (str/blank? url)
+    (->> (vals (get @stores store-key {}))
+         (some (fn [content]
+                 (when (= url (:url content))
+                   content))))))
+
+(m/=> find-by-url [:=> [:cat :string [:maybe :string]] [:maybe schemas/Content]])
+
 (defn delete-content!
   "Deletes a Content entity by ID. Returns true if the key existed."
   [store-key content-id]
@@ -63,4 +77,7 @@
                   :created-at 1710000000000})
   (list-contents "test")
   (load-content "test" "1")
-  (clear-store! "test"))
+  (clear-store! "test")
+
+  ;; Find by URL (duplicate detection)
+  (find-by-url "test" "https://example.com/article"))

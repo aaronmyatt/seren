@@ -12,6 +12,7 @@
    See: https://clojure.org/reference/reader#_tagged_literals"
   (:require [clojure.java.io :as io]
             [clojure.edn :as edn]
+            [clojure.string :as str]
             [malli.core :as m]
             [seren.core.schemas :as schemas]
             [seren.schemas.common :as common]))
@@ -52,6 +53,23 @@
 
 (m/=> list-contents [:=> [:cat :string] [:vector schemas/Content]])
 
+(defn find-by-url
+  "Finds a Content entity by its :url field. Returns the first match or nil.
+   Used for duplicate detection — a repeated URL is a learning signal,
+   not an error. See plan-url-fetching.md § 'Duplicate URLs'."
+  [store-dir url]
+  (when-not (str/blank? url)
+    (let [dir (io/file store-dir)]
+      (when (.exists dir)
+        (->> (.listFiles dir)
+             (filter #(.. % getName (endsWith ".edn")))
+             (some (fn [f]
+                     (let [content (edn/read-string (slurp f))]
+                       (when (= url (:url content))
+                         content)))))))))
+
+(m/=> find-by-url [:=> [:cat :string [:maybe :string]] [:maybe schemas/Content]])
+
 (defn delete-content!
   "Deletes a Content entity by ID. Returns true if deleted, false if not found."
   [store-dir content-id]
@@ -73,4 +91,7 @@
   (list-contents "/tmp/seren-content")
 
   ;; Load by ID
-  (load-content "/tmp/seren-content" "test-1"))
+  (load-content "/tmp/seren-content" "test-1")
+
+  ;; Find by URL (duplicate detection)
+  (find-by-url "/tmp/seren-content" "https://example.com/article"))

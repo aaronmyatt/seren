@@ -1,7 +1,11 @@
 {:paths ["src"]
  :deps {org.clojure/clojure {:mvn/version "1.12.0"}
         metosin/malli       {:mvn/version "0.20.0"}
-        seren/core           {:local/root "../core"}}
+        seren/core           {:local/root "../core"}
+        ;; Jsoup handles HTTP fetching + HTML parsing + text extraction.
+        ;; Single JAR, no transitive deps. Used by url_fetcher.clj.
+        ;; See: https://jsoup.org/
+        org.jsoup/jsoup      {:mvn/version "1.18.3"}}
  :aliases
  {:test
   {:extra-paths ["test" "../../shared/src"]
